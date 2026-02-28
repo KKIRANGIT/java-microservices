@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -61,5 +62,30 @@ class InventoryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.skuCode").value("SKU-3"))
                 .andExpect(jsonPath("$.quantity").value(11));
+    }
+
+    @Test
+    void updateInventory_updatesRow() throws Exception {
+        when(inventoryService.updateInventory("SKU-1", 15))
+                .thenReturn(new InventoryResponse("SKU-1", true, 15));
+
+        mockMvc.perform(put("/api/inventory/SKU-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"quantity":15}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.skuCode").value("SKU-1"))
+                .andExpect(jsonPath("$.quantity").value(15));
+    }
+
+    @Test
+    void updateInventory_returnsBadRequest_whenNegativeQuantity() throws Exception {
+        mockMvc.perform(put("/api/inventory/SKU-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"quantity":-1}
+                                """))
+                .andExpect(status().isBadRequest());
     }
 }

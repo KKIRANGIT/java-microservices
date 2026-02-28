@@ -3,6 +3,7 @@ services:
     image: postgres:16-alpine
     container_name: ecommerce-postgres
     environment:
+      TZ: Asia/Kolkata
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
@@ -18,10 +19,28 @@ services:
     networks:
       - ecommerce-network
 
+  pgadmin:
+    image: dpage/pgadmin4:9.1
+    container_name: ecommerce-pgadmin
+    environment:
+      TZ: Asia/Kolkata
+      PGADMIN_DEFAULT_EMAIL: admin@ecommerce.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
     container_name: ecommerce-zookeeper
     environment:
+      TZ: Asia/Kolkata
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     volumes:
@@ -34,6 +53,7 @@ services:
     image: confluentinc/cp-kafka:7.6.1
     container_name: ecommerce-kafka
     environment:
+      TZ: Asia/Kolkata
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
@@ -59,6 +79,7 @@ services:
     ports:
       - "8090:8080"
     environment:
+      TZ: Asia/Kolkata
       KAFKA_CLUSTERS_0_NAME: ecommerce
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
     depends_on:
@@ -72,6 +93,8 @@ services:
       context: .
       dockerfile: services/discovery-service/Dockerfile
     container_name: discovery-service
+    environment:
+      TZ: Asia/Kolkata
     ports:
       - "8761:8761"
     volumes:
@@ -84,6 +107,8 @@ services:
       context: .
       dockerfile: services/gateway-service/Dockerfile
     container_name: gateway-service
+    environment:
+      TZ: Asia/Kolkata
     ports:
       - "8080:8080"
     depends_on:
@@ -98,6 +123,8 @@ services:
       context: .
       dockerfile: services/product-service/Dockerfile
     container_name: product-service
+    environment:
+      TZ: Asia/Kolkata
     ports:
       - "8081:8081"
     depends_on:
@@ -115,6 +142,8 @@ services:
       context: .
       dockerfile: services/inventory-service/Dockerfile
     container_name: inventory-service
+    environment:
+      TZ: Asia/Kolkata
     ports:
       - "8082:8082"
     depends_on:
@@ -132,6 +161,8 @@ services:
       context: .
       dockerfile: services/order-service/Dockerfile
     container_name: order-service
+    environment:
+      TZ: Asia/Kolkata
     ports:
       - "8083:8083"
     depends_on:
@@ -155,6 +186,8 @@ services:
       context: .
       dockerfile: services/notification-service/Dockerfile
     container_name: notification-service
+    environment:
+      TZ: Asia/Kolkata
     ports:
       - "8084:8084"
     depends_on:
@@ -172,6 +205,8 @@ services:
   prometheus:
     image: prom/prometheus:v2.54.1
     container_name: ecommerce-prometheus
+    environment:
+      TZ: Asia/Kolkata
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
     ports:
@@ -191,6 +226,8 @@ services:
   loki:
     image: grafana/loki:3.2.1
     container_name: ecommerce-loki
+    environment:
+      TZ: Asia/Kolkata
     command: -config.file=/etc/loki/loki-config.yml
     ports:
       - "3100:3100"
@@ -203,6 +240,8 @@ services:
   promtail:
     image: grafana/promtail:3.2.1
     container_name: ecommerce-promtail
+    environment:
+      TZ: Asia/Kolkata
     command: -config.file=/etc/promtail/promtail-config.yml
     volumes:
       - ./infra/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
@@ -223,8 +262,10 @@ services:
     ports:
       - "3000:3000"
     environment:
+      TZ: Asia/Kolkata
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_DATE_FORMATS_DEFAULT_TIMEZONE: Asia/Kolkata
     volumes:
       - grafana-data:/var/lib/grafana
       - ./infra/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
@@ -238,6 +279,8 @@ services:
   storefront:
     image: nginx:1.27-alpine
     container_name: ecommerce-storefront
+    environment:
+      TZ: Asia/Kolkata
     ports:
       - "5173:80"
     volumes:
@@ -260,6 +303,7 @@ volumes:
   prometheus-data:
   loki-data:
   grafana-data:
+  pgadmin-data:
   discovery-logs:
   gateway-logs:
   product-logs:

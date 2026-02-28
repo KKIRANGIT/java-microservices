@@ -126,7 +126,7 @@
     "to": "now"
   },
   "timepicker": {},
-  "timezone": "",
+  "timezone": "Asia/Kolkata",
   "title": "Ecommerce Microservices Overview",
   "uid": "ecommerce-overview",
   "version": 1,

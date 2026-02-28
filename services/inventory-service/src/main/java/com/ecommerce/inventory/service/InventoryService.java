@@ -50,6 +50,18 @@ public class InventoryService {
     }
 
     @Transactional
+    public InventoryResponse updateInventory(String skuCode, int quantity) {
+        Inventory inventory = inventoryRepository.findBySkuCode(skuCode).orElseGet(() -> {
+            Inventory created = new Inventory();
+            created.setSkuCode(skuCode);
+            return created;
+        });
+        inventory.setQuantity(quantity);
+        Inventory saved = inventoryRepository.save(inventory);
+        return new InventoryResponse(saved.getSkuCode(), saved.getQuantity() > 0, saved.getQuantity());
+    }
+
+    @Transactional
     public InventoryResponse reserveInventory(ReserveInventoryRequest request) {
         Inventory inventory = inventoryRepository.findBySkuCode(request.skuCode()).orElse(null);
         if (inventory == null || inventory.getQuantity() < request.quantity()) {

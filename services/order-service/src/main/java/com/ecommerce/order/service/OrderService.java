@@ -19,8 +19,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
 
 @Service
 public class OrderService {
@@ -31,15 +29,15 @@ public class OrderService {
     private static final String ORDER_EVENTS_TOPIC = "order-events";
 
     private final OrderRepository orderRepository;
-    private final RestTemplate restTemplate;
+    private final ProductCatalogClient productCatalogClient;
     private final OutboxService outboxService;
 
     public OrderService(
             OrderRepository orderRepository,
-            RestTemplate restTemplate,
+            ProductCatalogClient productCatalogClient,
             OutboxService outboxService) {
         this.orderRepository = orderRepository;
-        this.restTemplate = restTemplate;
+        this.productCatalogClient = productCatalogClient;
         this.outboxService = outboxService;
     }
 
@@ -64,15 +62,13 @@ public class OrderService {
 
         ProductResponse product;
         try {
-            product = restTemplate.getForObject(
-                    "http://product-service/api/products/sku/{skuCode}",
-                    ProductResponse.class,
-                    request.skuCode());
-        } catch (RestClientException ex) {
-            throw new OrderPlacementException("Product not found for sku " + request.skuCode());
-        }
-        if (product == null) {
-            throw new OrderPlacementException("Product not found for sku " + request.skuCode());
+            product = productCatalogClient.getProductBySku(request.skuCode());
+        } catch (ProductNotFoundException ex) {
+            throw new OrderPlacementException(ex.getMessage());
+        } catch (ProductServiceUnavailableException ex) {
+            throw new OrderPlacementException("Product service is temporarily unavailable. Please retry.");
+        } catch (RuntimeException ex) {
+            throw new OrderPlacementException("Product lookup is temporarily throttled. Please retry.");
         }
 
         Instant now = Instant.now();

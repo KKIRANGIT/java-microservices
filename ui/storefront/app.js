@@ -19,6 +19,17 @@ const stepElements = {
 
 let productsCache = [];
 let inventoryMap = new Map();
+const IST_TIME_ZONE = "Asia/Kolkata";
+const IST_FORMATTER = new Intl.DateTimeFormat("en-IN", {
+    timeZone: IST_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+});
 
 function escapeHtml(value) {
     return String(value ?? "")
@@ -38,7 +49,7 @@ function formatTime(value) {
     if (!value) return "-";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "-";
-    return date.toISOString().replace("T", " ").replace(".000Z", "");
+    return `${IST_FORMATTER.format(date).replace(",", "")} IST`;
 }
 
 function setStep(step, state, label) {
@@ -98,7 +109,7 @@ function renderProducts() {
 function renderInventoryTable(items) {
     inventoryTableBodyEl.innerHTML = "";
     if (!items.length) {
-        inventoryTableBodyEl.innerHTML = '<tr><td colspan="3">No inventory rows found.</td></tr>';
+        inventoryTableBodyEl.innerHTML = '<tr><td colspan="4">No inventory rows found.</td></tr>';
         return;
     }
 
@@ -109,7 +120,37 @@ function renderInventoryTable(items) {
             <td>${escapeHtml(item.skuCode)}</td>
             <td><span class="flag ${item.available ? "ok" : "bad"}">${availability}</span></td>
             <td>${escapeHtml(item.quantity)}</td>
+            <td>
+                <div class="inventory-edit">
+                    <input type="number" min="0" value="${escapeHtml(item.quantity)}" data-role="inventory-quantity">
+                    <button type="button" data-role="inventory-update" data-sku="${escapeHtml(item.skuCode)}">Update</button>
+                </div>
+            </td>
         `;
+
+        const quantityInput = row.querySelector('[data-role="inventory-quantity"]');
+        const updateButton = row.querySelector('[data-role="inventory-update"]');
+        updateButton.addEventListener("click", async () => {
+            const nextQuantity = Number.parseInt(quantityInput.value, 10);
+            if (!Number.isInteger(nextQuantity) || nextQuantity < 0) {
+                workflowMessageEl.textContent = "Inventory update failed: quantity must be zero or greater.";
+                return;
+            }
+
+            updateButton.disabled = true;
+            const oldLabel = updateButton.textContent;
+            updateButton.textContent = "Updating...";
+            try {
+                const updated = await updateInventoryCount(item.skuCode, nextQuantity);
+                await fetchInventory();
+                workflowMessageEl.textContent = `Inventory updated for ${updated.skuCode} to ${updated.quantity}.`;
+            } catch (err) {
+                workflowMessageEl.textContent = `Inventory update failed: ${err.message}`;
+            } finally {
+                updateButton.disabled = false;
+                updateButton.textContent = oldLabel;
+            }
+        });
         inventoryTableBodyEl.appendChild(row);
     });
 }
@@ -187,6 +228,14 @@ async function fetchNotifications(limit = 20) {
     const events = await requestJson(`/api/notifications?limit=${limit}`);
     renderNotificationsTable(events);
     return events;
+}
+
+async function updateInventoryCount(skuCode, quantity) {
+    return requestJson(`/api/inventory/${encodeURIComponent(skuCode)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity })
+    });
 }
 
 function sleep(ms) {

@@ -11,18 +11,74 @@ spring:
           uri: lb://product-service
           predicates:
             - Path=/api/products/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: productGatewayCircuitBreaker
+                fallbackUri: forward:/fallback/product-service
+            - name: Retry
+              args:
+                retries: 2
+                methods:
+                  - GET
+                statuses:
+                  - BAD_GATEWAY
+                  - SERVICE_UNAVAILABLE
+                  - GATEWAY_TIMEOUT
         - id: inventory-service
           uri: lb://inventory-service
           predicates:
             - Path=/api/inventory/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: inventoryGatewayCircuitBreaker
+                fallbackUri: forward:/fallback/inventory-service
+            - name: Retry
+              args:
+                retries: 2
+                methods:
+                  - GET
+                statuses:
+                  - BAD_GATEWAY
+                  - SERVICE_UNAVAILABLE
+                  - GATEWAY_TIMEOUT
         - id: order-service
           uri: lb://order-service
           predicates:
             - Path=/api/orders/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: orderGatewayCircuitBreaker
+                fallbackUri: forward:/fallback/order-service
+            - name: Retry
+              args:
+                retries: 1
+                methods:
+                  - GET
+                statuses:
+                  - BAD_GATEWAY
+                  - SERVICE_UNAVAILABLE
+                  - GATEWAY_TIMEOUT
         - id: notification-service
           uri: lb://notification-service
           predicates:
             - Path=/api/notifications/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: notificationGatewayCircuitBreaker
+                fallbackUri: forward:/fallback/notification-service
+            - name: Retry
+              args:
+                retries: 2
+                methods:
+                  - GET
+                statuses:
+                  - BAD_GATEWAY
+                  - SERVICE_UNAVAILABLE
+                  - GATEWAY_TIMEOUT
       globalcors:
         corsConfigurations:
           '[/**]':
@@ -53,5 +109,41 @@ management:
 logging:
   file:
     name: /app/logs/gateway-service.log
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      productGatewayCircuitBreaker:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 20s
+        permitted-number-of-calls-in-half-open-state: 5
+      inventoryGatewayCircuitBreaker:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 20s
+        permitted-number-of-calls-in-half-open-state: 5
+      orderGatewayCircuitBreaker:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 20s
+        permitted-number-of-calls-in-half-open-state: 5
+      notificationGatewayCircuitBreaker:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 20s
+        permitted-number-of-calls-in-half-open-state: 5
+
+app:
+  gateway:
+    rate-limiter:
+      enabled: true
+      capacity: 80
+      refill-tokens: 80
+      refill-duration: 1s
 
 

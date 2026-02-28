@@ -10,7 +10,7 @@
 <main class="container">
     <header>
         <h1>Ecommerce Microservices Storefront</h1>
-        <p>Saga-style order flow: order created -> inventory event -> final order state -> notification event.</p>
+        <p>Saga-style order flow: order created -> inventory event -> final order state -> notification event. All timestamps are shown in IST (Asia/Kolkata).</p>
         <div class="quick-links">
             <a href="http://localhost:8080/actuator/health" target="_blank" rel="noopener">Gateway Health</a>
             <a href="http://localhost:8761" target="_blank" rel="noopener">Eureka</a>
@@ -47,6 +47,7 @@
                 <th>SKU</th>
                 <th>Available</th>
                 <th>Quantity</th>
+                <th>Update Count</th>
             </tr>
             </thead>
             <tbody id="inventoryTableBody"></tbody>
@@ -87,8 +88,8 @@
                 <th>Qty</th>
                 <th>Total</th>
                 <th>Note</th>
-                <th>Created At (UTC)</th>
-                <th>Updated At (UTC)</th>
+                <th>Created At (IST)</th>
+                <th>Updated At (IST)</th>
             </tr>
             </thead>
             <tbody id="ordersTableBody"></tbody>
@@ -108,7 +109,7 @@
                 <th>SKU</th>
                 <th>Qty</th>
                 <th>Message</th>
-                <th>Processed At (UTC)</th>
+                <th>Processed At (IST)</th>
             </tr>
             </thead>
             <tbody id="notificationsTableBody"></tbody>

@@ -31,8 +31,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
@@ -41,7 +39,7 @@ class OrderServiceTest {
     private OrderRepository orderRepository;
 
     @Mock
-    private RestTemplate restTemplate;
+    private ProductCatalogClient productCatalogClient;
 
     @Mock
     private OutboxService outboxService;
@@ -109,27 +107,21 @@ class OrderServiceTest {
     @Test
     void placeOrder_throws_whenProductServiceFails() {
         OrderRequest request = new OrderRequest("SKU-1", 1, "user@example.com");
-        when(restTemplate.getForObject(
-                        eq("http://product-service/api/products/sku/{skuCode}"),
-                        eq(ProductResponse.class),
-                        eq("SKU-1")))
-                .thenThrow(new RestClientException("down"));
+        when(productCatalogClient.getProductBySku("SKU-1"))
+                .thenThrow(new ProductServiceUnavailableException("down", new RuntimeException("down")));
 
         OrderPlacementException ex = assertThrows(
                 OrderPlacementException.class,
                 () -> orderService.placeOrder(request));
 
-        assertEquals("Product not found for sku SKU-1", ex.getMessage());
+        assertEquals("Product service is temporarily unavailable. Please retry.", ex.getMessage());
     }
 
     @Test
     void placeOrder_throws_whenProductMissing() {
         OrderRequest request = new OrderRequest("SKU-1", 1, "user@example.com");
-        when(restTemplate.getForObject(
-                        eq("http://product-service/api/products/sku/{skuCode}"),
-                        eq(ProductResponse.class),
-                        eq("SKU-1")))
-                .thenReturn(null);
+        when(productCatalogClient.getProductBySku("SKU-1"))
+                .thenThrow(new ProductNotFoundException("Product not found for sku SKU-1"));
 
         OrderPlacementException ex = assertThrows(
                 OrderPlacementException.class,
@@ -148,10 +140,7 @@ class OrderServiceTest {
                 "Mechanical",
                 new BigDecimal("120.00"));
 
-        when(restTemplate.getForObject(
-                        eq("http://product-service/api/products/sku/{skuCode}"),
-                        eq(ProductResponse.class),
-                        eq("SKU-1")))
+        when(productCatalogClient.getProductBySku("SKU-1"))
                 .thenReturn(productResponse);
         when(orderRepository.save(any(CustomerOrder.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

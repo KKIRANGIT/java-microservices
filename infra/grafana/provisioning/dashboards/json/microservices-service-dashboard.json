@@ -510,7 +510,7 @@
     "to": "now"
   },
   "timepicker": {},
-  "timezone": "",
+  "timezone": "Asia/Kolkata",
   "title": "Microservices Service Dashboard",
   "uid": "microservices-service-dashboard",
   "version": 1,

@@ -231,6 +231,22 @@ button:disabled {
     vertical-align: top;
 }
 
+.inventory-edit {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.inventory-edit input {
+    width: 95px;
+    padding: 6px 8px;
+}
+
+.inventory-edit button {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
 .data-table th {
     color: #264361;
     background: #f6f9ff;

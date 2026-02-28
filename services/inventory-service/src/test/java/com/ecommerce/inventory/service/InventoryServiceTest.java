@@ -98,6 +98,32 @@ class InventoryServiceTest {
     }
 
     @Test
+    void updateInventory_updatesExistingRow() {
+        Inventory existing = inventory("SKU-1", 5);
+        when(inventoryRepository.findBySkuCode("SKU-1")).thenReturn(Optional.of(existing));
+        when(inventoryRepository.save(any(Inventory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        InventoryResponse response = inventoryService.updateInventory("SKU-1", 22);
+
+        assertEquals("SKU-1", response.skuCode());
+        assertTrue(response.available());
+        assertEquals(22, response.quantity());
+        assertEquals(22, existing.getQuantity());
+    }
+
+    @Test
+    void updateInventory_createsInventoryRow_whenMissing() {
+        when(inventoryRepository.findBySkuCode("SKU-NEW")).thenReturn(Optional.empty());
+        when(inventoryRepository.save(any(Inventory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        InventoryResponse response = inventoryService.updateInventory("SKU-NEW", 0);
+
+        assertEquals("SKU-NEW", response.skuCode());
+        assertFalse(response.available());
+        assertEquals(0, response.quantity());
+    }
+
+    @Test
     void handleOrderCreated_enqueuesFailedEvent_whenSkuMissing() {
         when(inventoryRepository.findBySkuCode("SKU-MISS")).thenReturn(Optional.empty());
         OrderCreatedEvent event = new OrderCreatedEvent(
