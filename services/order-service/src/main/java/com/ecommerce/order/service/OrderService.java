@@ -2,16 +2,20 @@ package com.ecommerce.order.service;
 
 import com.ecommerce.order.api.OrderRequest;
 import com.ecommerce.order.api.OrderResponse;
-import com.ecommerce.order.client.InventoryReserveRequest;
-import com.ecommerce.order.client.InventoryReserveResponse;
 import com.ecommerce.order.client.ProductResponse;
-import com.ecommerce.order.event.OrderPlacedEvent;
+import com.ecommerce.order.event.InventoryProcessedEvent;
+import com.ecommerce.order.event.OrderCreatedEvent;
+import com.ecommerce.order.event.OrderLifecycleEvent;
 import com.ecommerce.order.model.CustomerOrder;
+import com.ecommerce.order.model.OrderStatus;
 import com.ecommerce.order.repository.OrderRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,16 +25,19 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class OrderService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(OrderService.class);
+    private static final String ORDER_CREATED_TOPIC = "order-created-events";
+    private static final String INVENTORY_EVENTS_TOPIC = "inventory-events";
     private static final String ORDER_EVENTS_TOPIC = "order-events";
 
     private final OrderRepository orderRepository;
     private final RestTemplate restTemplate;
-    private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     public OrderService(
             OrderRepository orderRepository,
             RestTemplate restTemplate,
-            KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate) {
+            KafkaTemplate<String, Object> kafkaTemplate) {
         this.orderRepository = orderRepository;
         this.restTemplate = restTemplate;
         this.kafkaTemplate = kafkaTemplate;
@@ -38,6 +45,12 @@ public class OrderService {
 
     public List<OrderResponse> getOrders() {
         return orderRepository.findAll().stream().map(this::toResponse).toList();
+    }
+
+    public OrderResponse getOrderByNumber(String orderNumber) {
+        CustomerOrder order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new OrderPlacementException("Order not found for orderNumber " + orderNumber));
+        return toResponse(order);
     }
 
     @Transactional
@@ -48,6 +61,7 @@ public class OrderService {
         if (request.customerEmail() == null || request.customerEmail().isBlank()) {
             throw new OrderPlacementException("Customer email is required");
         }
+
         ProductResponse product;
         try {
             product = restTemplate.getForObject(
@@ -61,20 +75,7 @@ public class OrderService {
             throw new OrderPlacementException("Product not found for sku " + request.skuCode());
         }
 
-        InventoryReserveResponse inventory;
-        try {
-            inventory = restTemplate.postForObject(
-                    "http://inventory-service/api/inventory/reserve",
-                    new InventoryReserveRequest(request.skuCode(), request.quantity()),
-                    InventoryReserveResponse.class);
-        } catch (RestClientException ex) {
-            throw new OrderPlacementException("Inventory service unavailable");
-        }
-
-        if (inventory == null || !inventory.available()) {
-            throw new OrderPlacementException("Inventory unavailable for sku " + request.skuCode());
-        }
-
+        Instant now = Instant.now();
         CustomerOrder order = new CustomerOrder();
         order.setOrderNumber(UUID.randomUUID().toString());
         order.setSkuCode(product.skuCode());
@@ -83,23 +84,94 @@ public class OrderService {
         order.setUnitPrice(product.price());
         order.setTotalPrice(product.price().multiply(BigDecimal.valueOf(request.quantity())));
         order.setCustomerEmail(request.customerEmail());
-        order.setCreatedAt(Instant.now());
+        order.setStatus(OrderStatus.PENDING.name());
+        order.setFailureReason(null);
+        order.setCreatedAt(now);
+        order.setUpdatedAt(now);
 
         CustomerOrder savedOrder = orderRepository.save(order);
 
         kafkaTemplate.send(
-                ORDER_EVENTS_TOPIC,
+                ORDER_CREATED_TOPIC,
                 savedOrder.getOrderNumber(),
-                new OrderPlacedEvent(
+                new OrderCreatedEvent(
                         savedOrder.getOrderNumber(),
                         savedOrder.getSkuCode(),
-                        savedOrder.getProductName(),
                         savedOrder.getQuantity(),
+                        savedOrder.getProductName(),
                         savedOrder.getTotalPrice(),
                         savedOrder.getCustomerEmail(),
                         savedOrder.getCreatedAt()));
+        LOGGER.info(
+                "Published order-created event: orderNumber={}, skuCode={}, quantity={}",
+                savedOrder.getOrderNumber(),
+                savedOrder.getSkuCode(),
+                savedOrder.getQuantity());
 
         return toResponse(savedOrder);
+    }
+
+    @KafkaListener(topics = INVENTORY_EVENTS_TOPIC, groupId = "order-service")
+    @Transactional
+    public void handleInventoryEvent(InventoryProcessedEvent event) {
+        LOGGER.info(
+                "Received inventory event: orderNumber={}, skuCode={}, reserved={}, message={}",
+                event.orderNumber(),
+                event.skuCode(),
+                event.reserved(),
+                event.message());
+
+        CustomerOrder order = orderRepository.findByOrderNumber(event.orderNumber()).orElse(null);
+        if (order == null) {
+            LOGGER.warn("Ignoring inventory event for unknown orderNumber={}", event.orderNumber());
+            return;
+        }
+
+        if (!OrderStatus.PENDING.name().equals(order.getStatus())) {
+            LOGGER.info(
+                    "Ignoring inventory event because order is already finalized: orderNumber={}, status={}",
+                    order.getOrderNumber(),
+                    order.getStatus());
+            return;
+        }
+
+        String lifecycleStatus;
+        String lifecycleMessage;
+
+        if (event.reserved()) {
+            order.setStatus(OrderStatus.CONFIRMED.name());
+            order.setFailureReason(null);
+            lifecycleStatus = OrderStatus.CONFIRMED.name();
+            lifecycleMessage = "Inventory reserved. Remaining quantity: " + event.availableQuantity();
+        } else {
+            order.setStatus(OrderStatus.CANCELLED.name());
+            order.setFailureReason(event.message());
+            lifecycleStatus = OrderStatus.CANCELLED.name();
+            lifecycleMessage = event.message();
+        }
+
+        order.setUpdatedAt(Instant.now());
+        CustomerOrder updated = orderRepository.save(order);
+
+        kafkaTemplate.send(
+                ORDER_EVENTS_TOPIC,
+                updated.getOrderNumber(),
+                new OrderLifecycleEvent(
+                        updated.getOrderNumber(),
+                        updated.getSkuCode(),
+                        updated.getProductName(),
+                        updated.getQuantity(),
+                        updated.getTotalPrice(),
+                        updated.getCustomerEmail(),
+                        lifecycleStatus,
+                        lifecycleMessage,
+                        updated.getCreatedAt(),
+                        updated.getUpdatedAt()));
+        LOGGER.info(
+                "Published order lifecycle event: orderNumber={}, status={}, reason={}",
+                updated.getOrderNumber(),
+                lifecycleStatus,
+                updated.getFailureReason());
     }
 
     private OrderResponse toResponse(CustomerOrder order) {
@@ -111,6 +183,9 @@ public class OrderService {
                 order.getUnitPrice(),
                 order.getTotalPrice(),
                 order.getCustomerEmail(),
-                order.getCreatedAt());
+                order.getStatus(),
+                order.getFailureReason(),
+                order.getCreatedAt(),
+                order.getUpdatedAt());
     }
 }

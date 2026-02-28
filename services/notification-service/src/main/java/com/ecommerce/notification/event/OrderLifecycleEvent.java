@@ -1,14 +1,17 @@
-package com.ecommerce.order.event;
+package com.ecommerce.notification.event;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 
-public record OrderPlacedEvent(
+public record OrderLifecycleEvent(
         String orderNumber,
         String skuCode,
         String productName,
         int quantity,
         BigDecimal totalPrice,
         String customerEmail,
-        Instant createdAt) {
+        String orderStatus,
+        String message,
+        Instant orderCreatedAt,
+        Instant occurredAt) {
 }

@@ -19,6 +19,10 @@ spring:
           uri: lb://order-service
           predicates:
             - Path=/api/orders/**
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notifications/**
       globalcors:
         corsConfigurations:
           '[/**]':
@@ -33,6 +37,8 @@ eureka:
   client:
     service-url:
       defaultZone: http://discovery-service:8761/eureka
+    filter-only-up-instances: true
+    registry-fetch-interval-seconds: 5
 
 management:
   endpoints:
@@ -47,3 +53,5 @@ management:
 logging:
   file:
     name: /app/logs/gateway-service.log
+
+

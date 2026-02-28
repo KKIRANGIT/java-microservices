@@ -11,5 +11,8 @@ public record OrderResponse(
         BigDecimal unitPrice,
         BigDecimal totalPrice,
         String customerEmail,
-        Instant createdAt) {
+        String status,
+        String failureReason,
+        Instant createdAt,
+        Instant updatedAt) {
 }

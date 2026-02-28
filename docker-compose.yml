@@ -158,6 +158,8 @@ services:
     ports:
       - "8084:8084"
     depends_on:
+      postgres:
+        condition: service_healthy
       kafka:
         condition: service_started
       discovery-service:
@@ -264,3 +266,4 @@ volumes:
   inventory-logs:
   order-logs:
   notification-logs:
+

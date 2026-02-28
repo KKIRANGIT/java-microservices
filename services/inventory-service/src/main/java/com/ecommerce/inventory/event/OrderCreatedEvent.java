@@ -1,13 +1,13 @@
-package com.ecommerce.notification.event;
+package com.ecommerce.inventory.event;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 
-public record OrderPlacedEvent(
+public record OrderCreatedEvent(
         String orderNumber,
         String skuCode,
-        String productName,
         int quantity,
+        String productName,
         BigDecimal totalPrice,
         String customerEmail,
         Instant createdAt) {

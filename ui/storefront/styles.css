@@ -1,9 +1,13 @@
 :root {
-    --bg: #f3f6fb;
+    --bg: #edf2f8;
     --panel: #ffffff;
     --text: #13243a;
-    --accent: #1f6feb;
-    --muted: #627287;
+    --accent: #0f62fe;
+    --muted: #5a6b80;
+    --line: #d6dfec;
+    --ok: #15803d;
+    --warn: #b45309;
+    --bad: #b91c1c;
 }
 
 * {
@@ -13,32 +17,118 @@
 body {
     margin: 0;
     font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    background: radial-gradient(circle at top, #e8efff 0%, #f7f9fd 45%, #ecf0f7 100%);
+    background: radial-gradient(circle at top left, #dce8fb 0%, #edf3fb 45%, #e8eef8 100%);
     color: var(--text);
 }
 
 .container {
-    max-width: 1050px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 24px;
     display: grid;
     gap: 18px;
 }
 
-header, section {
+header,
+section {
     background: var(--panel);
     border-radius: 12px;
     padding: 16px;
-    box-shadow: 0 6px 20px rgba(15, 37, 71, 0.08);
+    box-shadow: 0 6px 20px rgba(13, 39, 71, 0.08);
 }
 
-h1, h2 {
-    margin: 0 0 10px 0;
+h1,
+h2 {
+    margin: 0 0 10px;
 }
 
 p {
     margin: 0;
     color: var(--muted);
+}
+
+.quick-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.quick-links a {
+    text-decoration: none;
+    font-size: 13px;
+    color: var(--accent);
+    background: #edf3ff;
+    border: 1px solid #d3e0fb;
+    border-radius: 999px;
+    padding: 6px 10px;
+}
+
+.workflow-message {
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.workflow-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 8px;
+}
+
+.workflow-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #fbfdff;
+}
+
+.badge,
+.flag,
+.stock-pill {
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.badge.idle {
+    color: #1e3a8a;
+    background: #e6eeff;
+    border-color: #c8dbff;
+}
+
+.badge.pending {
+    color: #92400e;
+    background: #fef3c7;
+    border-color: #fcd34d;
+}
+
+.badge.ok,
+.flag.ok {
+    color: #14532d;
+    background: #dcfce7;
+    border-color: #86efac;
+}
+
+.badge.warn {
+    color: #78350f;
+    background: #fef3c7;
+    border-color: #facc15;
+}
+
+.badge.bad,
+.flag.bad {
+    color: #7f1d1d;
+    background: #fee2e2;
+    border-color: #fca5a5;
 }
 
 .cards {
@@ -48,9 +138,16 @@ p {
 }
 
 .card {
-    border: 1px solid #d8e2f0;
+    border: 1px solid var(--line);
     border-radius: 10px;
     padding: 12px;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(13, 39, 71, 0.08);
 }
 
 .card h3 {
@@ -60,6 +157,24 @@ p {
 .sku {
     color: var(--muted);
     font-size: 13px;
+}
+
+.card p {
+    margin: 8px 0;
+    min-height: 38px;
+}
+
+.card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.stock-pill {
+    color: #1e3a8a;
+    background: #e0e7ff;
+    border-color: #c7d2fe;
 }
 
 form {
@@ -75,7 +190,8 @@ label {
     font-size: 14px;
 }
 
-input, button {
+input,
+button {
     border-radius: 8px;
     border: 1px solid #c9d6e8;
     padding: 10px;
@@ -89,6 +205,37 @@ button {
     cursor: pointer;
 }
 
+button:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+    padding: 9px 8px;
+    font-size: 13px;
+    vertical-align: top;
+}
+
+.data-table th {
+    color: #264361;
+    background: #f6f9ff;
+}
+
 pre {
     margin: 12px 0 0;
     padding: 12px;
@@ -97,4 +244,21 @@ pre {
     border-radius: 8px;
     overflow: auto;
     min-height: 70px;
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 14px;
+    }
+
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .workflow-list li {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }

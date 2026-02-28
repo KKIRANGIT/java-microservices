@@ -10,12 +10,47 @@
 <main class="container">
     <header>
         <h1>Ecommerce Microservices Storefront</h1>
-        <p>Gateway-backed UI for product and order APIs.</p>
+        <p>Saga-style order flow: order created -> inventory event -> final order state -> notification event.</p>
+        <div class="quick-links">
+            <a href="http://localhost:8080/actuator/health" target="_blank" rel="noopener">Gateway Health</a>
+            <a href="http://localhost:8761" target="_blank" rel="noopener">Eureka</a>
+            <a href="http://localhost:8090" target="_blank" rel="noopener">Kafka UI</a>
+            <a href="http://localhost:3000" target="_blank" rel="noopener">Grafana</a>
+            <a href="http://localhost:9090/targets" target="_blank" rel="noopener">Prometheus Targets</a>
+        </div>
     </header>
 
     <section>
+        <h2>Order Saga Validation</h2>
+        <div id="workflowMessage" class="workflow-message">Place an order to validate the Saga flow.</div>
+        <ul class="workflow-list">
+            <li><span>Order accepted (PENDING) by order-service</span><span id="orderStep" class="badge idle">WAITING</span></li>
+            <li><span>Inventory event processed (inventory-service)</span><span id="inventoryStep" class="badge idle">WAITING</span></li>
+            <li><span>Notification event consumed (notification-service)</span><span id="notificationStep" class="badge idle">WAITING</span></li>
+        </ul>
+    </section>
+
+    <section>
         <h2>Catalog</h2>
+        <p>Click any product card to prefill SKU in the order form.</p>
         <div id="products" class="cards"></div>
+    </section>
+
+    <section>
+        <div class="section-header">
+            <h2>Inventory Snapshot</h2>
+            <button id="refreshInventory" type="button">Refresh Inventory</button>
+        </div>
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>SKU</th>
+                <th>Available</th>
+                <th>Quantity</th>
+            </tr>
+            </thead>
+            <tbody id="inventoryTableBody"></tbody>
+        </table>
     </section>
 
     <section>
@@ -33,15 +68,51 @@
                 Customer Email
                 <input id="customerEmail" name="customerEmail" type="email" required>
             </label>
-            <button type="submit">Submit Order</button>
+            <button id="submitOrder" type="submit">Submit Order</button>
         </form>
         <pre id="orderResult"></pre>
     </section>
 
     <section>
-        <h2>Recent Orders</h2>
-        <button id="refreshOrders" type="button">Refresh Orders</button>
-        <pre id="ordersResult"></pre>
+        <div class="section-header">
+            <h2>Recent Orders</h2>
+            <button id="refreshOrders" type="button">Refresh Orders</button>
+        </div>
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Order #</th>
+                <th>Status</th>
+                <th>SKU</th>
+                <th>Qty</th>
+                <th>Total</th>
+                <th>Note</th>
+                <th>Created At (UTC)</th>
+                <th>Updated At (UTC)</th>
+            </tr>
+            </thead>
+            <tbody id="ordersTableBody"></tbody>
+        </table>
+    </section>
+
+    <section>
+        <div class="section-header">
+            <h2>Notification Events</h2>
+            <button id="refreshNotifications" type="button">Refresh Notifications</button>
+        </div>
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Order #</th>
+                <th>Status</th>
+                <th>SKU</th>
+                <th>Qty</th>
+                <th>Message</th>
+                <th>Processed At (UTC)</th>
+            </tr>
+            </thead>
+            <tbody id="notificationsTableBody"></tbody>
+        </table>
     </section>
 </main>
 <script src="./app.js"></script>

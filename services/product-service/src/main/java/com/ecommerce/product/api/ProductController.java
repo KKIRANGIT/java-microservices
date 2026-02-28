@@ -27,7 +27,7 @@ public class ProductController {
     }
 
     @GetMapping("/sku/{skuCode}")
-    public ProductResponse getBySkuCode(@PathVariable String skuCode) {
+    public ProductResponse getBySkuCode(@PathVariable("skuCode") String skuCode) {
         return productService.getBySkuCode(skuCode);
     }
 

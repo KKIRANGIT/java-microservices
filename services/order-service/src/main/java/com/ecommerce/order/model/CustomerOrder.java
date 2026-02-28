@@ -41,6 +41,12 @@ public class CustomerOrder {
     @Column(nullable = false)
     private Instant createdAt;
 
+    private String status;
+
+    private String failureReason;
+
+    private Instant updatedAt;
+
     public Long getId() {
         return id;
     }
@@ -111,5 +117,29 @@ public class CustomerOrder {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getFailureReason() {
+        return failureReason;
+    }
+
+    public void setFailureReason(String failureReason) {
+        this.failureReason = failureReason;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }
