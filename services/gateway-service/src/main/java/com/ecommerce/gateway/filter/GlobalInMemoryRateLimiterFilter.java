@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -26,10 +27,14 @@ public class GlobalInMemoryRateLimiterFilter implements GlobalFilter, Ordered {
     private static final Logger LOGGER = LoggerFactory.getLogger(GlobalInMemoryRateLimiterFilter.class);
 
     private final GatewayRateLimiterProperties properties;
+    private final MeterRegistry meterRegistry;
     private final ConcurrentHashMap<String, TokenBucket> buckets = new ConcurrentHashMap<>();
 
-    public GlobalInMemoryRateLimiterFilter(GatewayRateLimiterProperties properties) {
+    public GlobalInMemoryRateLimiterFilter(
+            GatewayRateLimiterProperties properties,
+            MeterRegistry meterRegistry) {
         this.properties = properties;
+        this.meterRegistry = meterRegistry;
     }
 
     @Override
@@ -54,9 +59,23 @@ public class GlobalInMemoryRateLimiterFilter implements GlobalFilter, Ordered {
                         properties.getRefillDuration()));
 
         if (bucket.tryConsume()) {
+            meterRegistry.counter(
+                            "ecommerce.gateway.ratelimit.requests",
+                            "route",
+                            routeId,
+                            "result",
+                            "allowed")
+                    .increment();
             return chain.filter(exchange);
         }
 
+        meterRegistry.counter(
+                        "ecommerce.gateway.ratelimit.requests",
+                        "route",
+                        routeId,
+                        "result",
+                        "blocked")
+                .increment();
         LOGGER.warn("Gateway rate limit exceeded. routeId={}, client={}", routeId, key);
         return tooManyRequests(exchange, routeId);
     }

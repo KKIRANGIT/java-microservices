@@ -1,6 +1,8 @@
 package com.ecommerce.inventory.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -23,14 +25,24 @@ public class OutboxPublisher {
     private final OutboxEventRepository outboxEventRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final MeterRegistry meterRegistry;
 
     public OutboxPublisher(
             OutboxEventRepository outboxEventRepository,
             KafkaTemplate<String, Object> kafkaTemplate,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            MeterRegistry meterRegistry) {
         this.outboxEventRepository = outboxEventRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
+        this.meterRegistry = meterRegistry;
+        Gauge.builder(
+                        "ecommerce.outbox.pending.events",
+                        outboxEventRepository,
+                        repo -> repo.countByStatus(OutboxStatus.PENDING))
+                .description("Pending outbox events waiting for publish")
+                .tag("service", "inventory-service")
+                .register(meterRegistry);
     }
 
     @Scheduled(fixedDelayString = "${outbox.publisher.fixed-delay-ms:1500}")
@@ -45,9 +57,27 @@ public class OutboxPublisher {
                 event.setStatus(OutboxStatus.PUBLISHED);
                 event.setPublishedAt(Instant.now());
                 event.setLastError(null);
+                meterRegistry.counter(
+                                "ecommerce.outbox.publish",
+                                "service",
+                                "inventory-service",
+                                "result",
+                                "success",
+                                "topic",
+                                event.getTopic())
+                        .increment();
             } catch (Exception ex) {
                 event.setAttempts(event.getAttempts() + 1);
                 event.setLastError(safeError(ex.getMessage()));
+                meterRegistry.counter(
+                                "ecommerce.outbox.publish",
+                                "service",
+                                "inventory-service",
+                                "result",
+                                "failure",
+                                "topic",
+                                event.getTopic())
+                        .increment();
                 LOGGER.error(
                         "Outbox publish failed: id={}, topic={}, aggregateType={}, aggregateId={}, attempts={}",
                         event.getId(),

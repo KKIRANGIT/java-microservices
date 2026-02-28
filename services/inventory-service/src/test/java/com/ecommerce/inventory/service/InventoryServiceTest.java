@@ -14,6 +14,8 @@ import com.ecommerce.inventory.event.OrderCreatedEvent;
 import com.ecommerce.inventory.model.Inventory;
 import com.ecommerce.inventory.outbox.OutboxService;
 import com.ecommerce.inventory.repository.InventoryRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -23,6 +25,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +36,9 @@ class InventoryServiceTest {
 
     @Mock
     private OutboxService outboxService;
+
+    @Spy
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @InjectMocks
     private InventoryService inventoryService;

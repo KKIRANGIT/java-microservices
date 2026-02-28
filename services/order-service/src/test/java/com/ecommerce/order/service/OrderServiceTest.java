@@ -21,6 +21,8 @@ import com.ecommerce.order.model.CustomerOrder;
 import com.ecommerce.order.model.OrderStatus;
 import com.ecommerce.order.outbox.OutboxService;
 import com.ecommerce.order.repository.OrderRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,6 +46,9 @@ class OrderServiceTest {
 
     @Mock
     private OutboxService outboxService;
+
+    @Spy
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @InjectMocks
     private OrderService orderService;

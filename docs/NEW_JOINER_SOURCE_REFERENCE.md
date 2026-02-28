@@ -382,6 +382,34 @@ Config:
 - `infra/promtail/promtail-config.yml`
 - `infra/loki/loki-config.yml`
 
+## 9.4 Custom Business Metrics
+
+The project now emits additional Micrometer metrics for live operations:
+
+- Order service:
+  - `ecommerce_orders_placed_total`
+  - `ecommerce_orders_rejected_total{reason=...}`
+  - `ecommerce_orders_finalized_total{status=CONFIRMED|CANCELLED}`
+  - `ecommerce_orders_pending`
+  - `ecommerce_orders_lifecycle_duration_seconds_*`
+- Inventory service:
+  - `ecommerce_inventory_saga_reserve_request_total`
+  - `ecommerce_inventory_saga_reserve_result_total{result=reserved|insufficient|sku_not_found}`
+  - `ecommerce_inventory_reserve_request_total`
+  - `ecommerce_inventory_reserve_result_total{result=success|failed}`
+  - `ecommerce_inventory_manual_update_total`
+  - `ecommerce_inventory_low_stock_skus`
+  - `ecommerce_inventory_out_of_stock_skus`
+- Outbox reliability (order + inventory):
+  - `ecommerce_outbox_publish_total{service=...,result=success|failure,topic=...}`
+  - `ecommerce_outbox_pending_events{service=...}`
+- Notification service:
+  - `ecommerce_notifications_processed_total{status=...}`
+- Gateway:
+  - `ecommerce_gateway_ratelimit_requests_total{route=...,result=allowed|blocked}`
+
+These metrics are visualized in `Microservices Service Dashboard`.
+
 ## 10. Local Runbook
 
 ## 10.1 Start Everything
@@ -407,7 +435,35 @@ powershell -ExecutionPolicy Bypass -File .\scripts\check-stack.ps1
 - Prometheus: `http://localhost:9090`
 - Grafana: `http://localhost:3000`
 
-## 10.4 API Smoke Tests
+Grafana login:
+
+- Username: `admin`
+- Password: `admin1`
+
+## 10.4 OpenAPI and Swagger URLs
+
+Recommended entry point:
+
+- Gateway aggregate Swagger UI: `http://localhost:8080/swagger-ui.html`
+
+Gateway API docs endpoints:
+
+- `http://localhost:8080/v3/api-docs`
+- `http://localhost:8080/v3/api-docs/discovery-service`
+- `http://localhost:8080/v3/api-docs/product-service`
+- `http://localhost:8080/v3/api-docs/inventory-service`
+- `http://localhost:8080/v3/api-docs/order-service`
+- `http://localhost:8080/v3/api-docs/notification-service`
+
+Direct service Swagger UI endpoints:
+
+- Discovery: `http://localhost:8761/swagger-ui.html`
+- Product: `http://localhost:8081/swagger-ui.html`
+- Inventory: `http://localhost:8082/swagger-ui.html`
+- Order: `http://localhost:8083/swagger-ui.html`
+- Notification: `http://localhost:8084/swagger-ui.html`
+
+## 10.5 API Smoke Tests
 
 ```bash
 curl http://localhost:8080/api/products
@@ -424,7 +480,7 @@ curl -X POST http://localhost:8080/api/orders \
   -d "{\"skuCode\":\"LAPTOP-ACER-001\",\"quantity\":1,\"customerEmail\":\"user@example.com\"}"
 ```
 
-## 10.5 Full Saga Verification
+## 10.6 Full Saga Verification
 
 Success path:
 

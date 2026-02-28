@@ -79,6 +79,36 @@ spring:
                   - BAD_GATEWAY
                   - SERVICE_UNAVAILABLE
                   - GATEWAY_TIMEOUT
+        - id: discovery-service-openapi
+          uri: lb://discovery-service
+          predicates:
+            - Path=/v3/api-docs/discovery-service
+          filters:
+            - RewritePath=/v3/api-docs/discovery-service, /v3/api-docs
+        - id: product-service-openapi
+          uri: lb://product-service
+          predicates:
+            - Path=/v3/api-docs/product-service
+          filters:
+            - RewritePath=/v3/api-docs/product-service, /v3/api-docs
+        - id: inventory-service-openapi
+          uri: lb://inventory-service
+          predicates:
+            - Path=/v3/api-docs/inventory-service
+          filters:
+            - RewritePath=/v3/api-docs/inventory-service, /v3/api-docs
+        - id: order-service-openapi
+          uri: lb://order-service
+          predicates:
+            - Path=/v3/api-docs/order-service
+          filters:
+            - RewritePath=/v3/api-docs/order-service, /v3/api-docs
+        - id: notification-service-openapi
+          uri: lb://notification-service
+          predicates:
+            - Path=/v3/api-docs/notification-service
+          filters:
+            - RewritePath=/v3/api-docs/notification-service, /v3/api-docs
       globalcors:
         corsConfigurations:
           '[/**]':
@@ -109,6 +139,26 @@ management:
 logging:
   file:
     name: /app/logs/gateway-service.log
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    urls-primary-name: gateway-service
+    urls:
+      - name: gateway-service
+        url: /v3/api-docs
+      - name: discovery-service
+        url: /v3/api-docs/discovery-service
+      - name: product-service
+        url: /v3/api-docs/product-service
+      - name: inventory-service
+        url: /v3/api-docs/inventory-service
+      - name: order-service
+        url: /v3/api-docs/order-service
+      - name: notification-service
+        url: /v3/api-docs/notification-service
 
 resilience4j:
   circuitbreaker:

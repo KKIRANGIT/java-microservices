@@ -51,6 +51,12 @@ logging:
   file:
     name: /app/logs/order-service.log
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
 resilience4j:
   circuitbreaker:
     instances:

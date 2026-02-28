@@ -51,6 +51,12 @@ logging:
   file:
     name: /app/logs/inventory-service.log
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
 outbox:
   publisher:
     fixed-delay-ms: 1500

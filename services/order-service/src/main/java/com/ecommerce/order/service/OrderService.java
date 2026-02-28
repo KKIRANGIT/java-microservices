@@ -10,7 +10,11 @@ import com.ecommerce.order.model.CustomerOrder;
 import com.ecommerce.order.model.OrderStatus;
 import com.ecommerce.order.outbox.OutboxService;
 import com.ecommerce.order.repository.OrderRepository;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -31,14 +35,20 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductCatalogClient productCatalogClient;
     private final OutboxService outboxService;
+    private final MeterRegistry meterRegistry;
 
     public OrderService(
             OrderRepository orderRepository,
             ProductCatalogClient productCatalogClient,
-            OutboxService outboxService) {
+            OutboxService outboxService,
+            MeterRegistry meterRegistry) {
         this.orderRepository = orderRepository;
         this.productCatalogClient = productCatalogClient;
         this.outboxService = outboxService;
+        this.meterRegistry = meterRegistry;
+        Gauge.builder("ecommerce.orders.pending", orderRepository, repo -> repo.countByStatus(OrderStatus.PENDING.name()))
+                .description("Current number of pending orders waiting for inventory result")
+                .register(meterRegistry);
     }
 
     public List<OrderResponse> getOrders() {
@@ -54,9 +64,11 @@ public class OrderService {
     @Transactional
     public OrderResponse placeOrder(OrderRequest request) {
         if (request.quantity() <= 0) {
+            meterRegistry.counter("ecommerce.orders.rejected", "reason", "invalid_quantity").increment();
             throw new OrderPlacementException("Quantity must be greater than zero");
         }
         if (request.customerEmail() == null || request.customerEmail().isBlank()) {
+            meterRegistry.counter("ecommerce.orders.rejected", "reason", "invalid_email").increment();
             throw new OrderPlacementException("Customer email is required");
         }
 
@@ -64,10 +76,13 @@ public class OrderService {
         try {
             product = productCatalogClient.getProductBySku(request.skuCode());
         } catch (ProductNotFoundException ex) {
+            meterRegistry.counter("ecommerce.orders.rejected", "reason", "product_not_found").increment();
             throw new OrderPlacementException(ex.getMessage());
         } catch (ProductServiceUnavailableException ex) {
+            meterRegistry.counter("ecommerce.orders.rejected", "reason", "product_service_unavailable").increment();
             throw new OrderPlacementException("Product service is temporarily unavailable. Please retry.");
         } catch (RuntimeException ex) {
+            meterRegistry.counter("ecommerce.orders.rejected", "reason", "product_lookup_throttled").increment();
             throw new OrderPlacementException("Product lookup is temporarily throttled. Please retry.");
         }
 
@@ -105,6 +120,7 @@ public class OrderService {
                 savedOrder.getOrderNumber(),
                 savedOrder.getSkuCode(),
                 savedOrder.getQuantity());
+        meterRegistry.counter("ecommerce.orders.placed").increment();
 
         return toResponse(savedOrder);
     }
@@ -172,6 +188,23 @@ public class OrderService {
                 updated.getOrderNumber(),
                 lifecycleStatus,
                 updated.getFailureReason());
+        meterRegistry.counter("ecommerce.orders.finalized", "status", lifecycleStatus).increment();
+        recordOrderLifecycleDuration(updated, lifecycleStatus);
+    }
+
+    private void recordOrderLifecycleDuration(CustomerOrder order, String lifecycleStatus) {
+        if (order.getCreatedAt() == null || order.getUpdatedAt() == null) {
+            return;
+        }
+        Duration duration = Duration.between(order.getCreatedAt(), order.getUpdatedAt());
+        if (duration.isNegative()) {
+            return;
+        }
+        Timer.builder("ecommerce.orders.lifecycle.duration")
+                .description("Order lifecycle duration from creation to final status")
+                .tag("status", lifecycleStatus)
+                .register(meterRegistry)
+                .record(duration);
     }
 
     private OrderResponse toResponse(CustomerOrder order) {

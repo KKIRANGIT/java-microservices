@@ -49,7 +49,7 @@ Production-style ecommerce reference project with a full local stack on Docker C
 - Kafka UI: `http://localhost:8090`
 - pgAdmin: `http://localhost:5050`
 - Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000` (`admin/admin`)
+- Grafana: `http://localhost:3000` (`admin/admin1`)
 
 ## One-Command Startup
 
@@ -82,6 +82,29 @@ curl -X POST http://localhost:8080/api/orders \
   -d "{\"skuCode\":\"LAPTOP-ACER-001\",\"quantity\":1,\"customerEmail\":\"user@example.com\"}"
 ```
 
+## OpenAPI / Swagger
+
+Gateway aggregated Swagger UI (recommended):
+
+- `http://localhost:8080/swagger-ui.html`
+
+Gateway proxied API docs:
+
+- `http://localhost:8080/v3/api-docs`
+- `http://localhost:8080/v3/api-docs/discovery-service`
+- `http://localhost:8080/v3/api-docs/product-service`
+- `http://localhost:8080/v3/api-docs/inventory-service`
+- `http://localhost:8080/v3/api-docs/order-service`
+- `http://localhost:8080/v3/api-docs/notification-service`
+
+Direct service Swagger UIs:
+
+- `http://localhost:8761/swagger-ui.html`
+- `http://localhost:8081/swagger-ui.html`
+- `http://localhost:8082/swagger-ui.html`
+- `http://localhost:8083/swagger-ui.html`
+- `http://localhost:8084/swagger-ui.html`
+
 ## Kafka Topics Used
 
 - `order-created-events`
@@ -98,6 +121,23 @@ Useful PromQL:
 
 - `up{job=~"discovery-service|gateway-service|product-service|inventory-service|order-service|notification-service"}`
 - `sum(rate(http_server_requests_seconds_count{job=~"discovery-service|gateway-service|product-service|inventory-service|order-service|notification-service"}[1m])) by (job)`
+
+Custom business/reliability metrics now included:
+
+- `ecommerce_orders_placed_total`
+- `ecommerce_orders_rejected_total{reason=...}`
+- `ecommerce_orders_finalized_total{status=...}`
+- `ecommerce_orders_pending`
+- `ecommerce_orders_lifecycle_duration_seconds_*`
+- `ecommerce_inventory_saga_reserve_request_total`
+- `ecommerce_inventory_saga_reserve_result_total{result=...}`
+- `ecommerce_inventory_manual_update_total`
+- `ecommerce_inventory_low_stock_skus`
+- `ecommerce_inventory_out_of_stock_skus`
+- `ecommerce_outbox_publish_total{service=...,result=...,topic=...}`
+- `ecommerce_outbox_pending_events{service=...}`
+- `ecommerce_notifications_processed_total{status=...}`
+- `ecommerce_gateway_ratelimit_requests_total{route=...,result=...}`
 
 ## Troubleshooting
 

@@ -11,6 +11,8 @@ import com.ecommerce.notification.api.NotificationResponse;
 import com.ecommerce.notification.event.OrderLifecycleEvent;
 import com.ecommerce.notification.model.NotificationEvent;
 import com.ecommerce.notification.repository.NotificationEventRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -20,6 +22,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +32,9 @@ class NotificationServiceTest {
 
     @Mock
     private NotificationEventRepository notificationEventRepository;
+
+    @Spy
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @InjectMocks
     private NotificationService notificationService;

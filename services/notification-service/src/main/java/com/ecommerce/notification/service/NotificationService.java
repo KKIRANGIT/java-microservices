@@ -4,6 +4,7 @@ import com.ecommerce.notification.api.NotificationResponse;
 import com.ecommerce.notification.event.OrderLifecycleEvent;
 import com.ecommerce.notification.model.NotificationEvent;
 import com.ecommerce.notification.repository.NotificationEventRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -16,9 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class NotificationService {
 
     private final NotificationEventRepository notificationEventRepository;
+    private final MeterRegistry meterRegistry;
 
-    public NotificationService(NotificationEventRepository notificationEventRepository) {
+    public NotificationService(
+            NotificationEventRepository notificationEventRepository,
+            MeterRegistry meterRegistry) {
         this.notificationEventRepository = notificationEventRepository;
+        this.meterRegistry = meterRegistry;
     }
 
     @Transactional
@@ -39,6 +44,7 @@ public class NotificationService {
         notificationEvent.setProcessedAt(event.occurredAt() == null ? Instant.now() : event.occurredAt());
 
         notificationEventRepository.save(notificationEvent);
+        meterRegistry.counter("ecommerce.notifications.processed", "status", event.orderStatus()).increment();
     }
 
     public List<NotificationResponse> getRecentNotifications(int limit) {
