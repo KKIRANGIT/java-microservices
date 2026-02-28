@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -18,6 +19,7 @@ import com.ecommerce.order.event.OrderCreatedEvent;
 import com.ecommerce.order.event.OrderLifecycleEvent;
 import com.ecommerce.order.model.CustomerOrder;
 import com.ecommerce.order.model.OrderStatus;
+import com.ecommerce.order.outbox.OutboxService;
 import com.ecommerce.order.repository.OrderRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -29,7 +31,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -43,7 +44,7 @@ class OrderServiceTest {
     private RestTemplate restTemplate;
 
     @Mock
-    private KafkaTemplate<String, Object> kafkaTemplate;
+    private OutboxService outboxService;
 
     @InjectMocks
     private OrderService orderService;
@@ -138,7 +139,7 @@ class OrderServiceTest {
     }
 
     @Test
-    void placeOrder_savesPendingOrder_andPublishesCreatedEvent() {
+    void placeOrder_savesPendingOrder_andEnqueuesCreatedEvent() {
         OrderRequest request = new OrderRequest("SKU-1", 2, "user@example.com");
         ProductResponse productResponse = new ProductResponse(
                 1L,
@@ -161,11 +162,18 @@ class OrderServiceTest {
         assertEquals(new BigDecimal("240.00"), response.totalPrice());
         assertNotNull(response.orderNumber());
 
-        ArgumentCaptor<OrderCreatedEvent> eventCaptor = ArgumentCaptor.forClass(OrderCreatedEvent.class);
-        verify(kafkaTemplate).send(eq("order-created-events"), eq(response.orderNumber()), eventCaptor.capture());
-        assertEquals(response.orderNumber(), eventCaptor.getValue().orderNumber());
-        assertEquals("SKU-1", eventCaptor.getValue().skuCode());
-        assertEquals(2, eventCaptor.getValue().quantity());
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(outboxService)
+                .enqueue(
+                        eq("ORDER"),
+                        eq(response.orderNumber()),
+                        eq("order-created-events"),
+                        eq(response.orderNumber()),
+                        eventCaptor.capture());
+        OrderCreatedEvent outboxEvent = (OrderCreatedEvent) eventCaptor.getValue();
+        assertEquals(response.orderNumber(), outboxEvent.orderNumber());
+        assertEquals("SKU-1", outboxEvent.skuCode());
+        assertEquals(2, outboxEvent.quantity());
     }
 
     @Test
@@ -183,7 +191,7 @@ class OrderServiceTest {
         orderService.handleInventoryEvent(event);
 
         verify(orderRepository, never()).save(any(CustomerOrder.class));
-        verify(kafkaTemplate, never()).send(eq("order-events"), any(String.class), any(OrderLifecycleEvent.class));
+        verify(outboxService, never()).enqueue(anyString(), anyString(), anyString(), anyString(), any());
     }
 
     @Test
@@ -203,7 +211,7 @@ class OrderServiceTest {
         orderService.handleInventoryEvent(event);
 
         verify(orderRepository, never()).save(any(CustomerOrder.class));
-        verify(kafkaTemplate, never()).send(eq("order-events"), any(String.class), any(OrderLifecycleEvent.class));
+        verify(outboxService, never()).enqueue(anyString(), anyString(), anyString(), anyString(), any());
     }
 
     @Test
@@ -230,10 +238,12 @@ class OrderServiceTest {
         assertEquals(null, saveCaptor.getValue().getFailureReason());
         assertNotNull(saveCaptor.getValue().getUpdatedAt());
 
-        ArgumentCaptor<OrderLifecycleEvent> eventCaptor = ArgumentCaptor.forClass(OrderLifecycleEvent.class);
-        verify(kafkaTemplate).send(eq("order-events"), eq("ORD-1"), eventCaptor.capture());
-        assertEquals(OrderStatus.CONFIRMED.name(), eventCaptor.getValue().orderStatus());
-        assertTrue(eventCaptor.getValue().message().contains("Remaining quantity: 12"));
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(outboxService)
+                .enqueue(eq("ORDER"), eq("ORD-1"), eq("order-events"), eq("ORD-1"), eventCaptor.capture());
+        OrderLifecycleEvent outboxEvent = (OrderLifecycleEvent) eventCaptor.getValue();
+        assertEquals(OrderStatus.CONFIRMED.name(), outboxEvent.orderStatus());
+        assertTrue(outboxEvent.message().contains("Remaining quantity: 12"));
     }
 
     @Test
@@ -259,10 +269,12 @@ class OrderServiceTest {
         assertEquals(OrderStatus.CANCELLED.name(), saveCaptor.getValue().getStatus());
         assertEquals("Insufficient inventory", saveCaptor.getValue().getFailureReason());
 
-        ArgumentCaptor<OrderLifecycleEvent> eventCaptor = ArgumentCaptor.forClass(OrderLifecycleEvent.class);
-        verify(kafkaTemplate).send(eq("order-events"), eq("ORD-1"), eventCaptor.capture());
-        assertEquals(OrderStatus.CANCELLED.name(), eventCaptor.getValue().orderStatus());
-        assertEquals("Insufficient inventory", eventCaptor.getValue().message());
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(outboxService)
+                .enqueue(eq("ORDER"), eq("ORD-1"), eq("order-events"), eq("ORD-1"), eventCaptor.capture());
+        OrderLifecycleEvent outboxEvent = (OrderLifecycleEvent) eventCaptor.getValue();
+        assertEquals(OrderStatus.CANCELLED.name(), outboxEvent.orderStatus());
+        assertEquals("Insufficient inventory", outboxEvent.message());
     }
 
     private CustomerOrder baseOrder() {

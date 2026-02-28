@@ -12,6 +12,7 @@ import com.ecommerce.inventory.api.ReserveInventoryRequest;
 import com.ecommerce.inventory.event.InventoryProcessedEvent;
 import com.ecommerce.inventory.event.OrderCreatedEvent;
 import com.ecommerce.inventory.model.Inventory;
+import com.ecommerce.inventory.outbox.OutboxService;
 import com.ecommerce.inventory.repository.InventoryRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -23,7 +24,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.kafka.core.KafkaTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class InventoryServiceTest {
@@ -32,7 +32,7 @@ class InventoryServiceTest {
     private InventoryRepository inventoryRepository;
 
     @Mock
-    private KafkaTemplate<String, Object> kafkaTemplate;
+    private OutboxService outboxService;
 
     @InjectMocks
     private InventoryService inventoryService;
@@ -98,7 +98,7 @@ class InventoryServiceTest {
     }
 
     @Test
-    void handleOrderCreated_publishesFailedEvent_whenSkuMissing() {
+    void handleOrderCreated_enqueuesFailedEvent_whenSkuMissing() {
         when(inventoryRepository.findBySkuCode("SKU-MISS")).thenReturn(Optional.empty());
         OrderCreatedEvent event = new OrderCreatedEvent(
                 "ORD-1",
@@ -111,15 +111,22 @@ class InventoryServiceTest {
 
         inventoryService.handleOrderCreated(event);
 
-        ArgumentCaptor<InventoryProcessedEvent> captor = ArgumentCaptor.forClass(InventoryProcessedEvent.class);
-        verify(kafkaTemplate).send(org.mockito.ArgumentMatchers.eq("inventory-events"), org.mockito.ArgumentMatchers.eq("ORD-1"), captor.capture());
-        assertFalse(captor.getValue().reserved());
-        assertEquals("Inventory SKU not found", captor.getValue().message());
-        assertEquals(0, captor.getValue().availableQuantity());
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(outboxService)
+                .enqueue(
+                        org.mockito.ArgumentMatchers.eq("INVENTORY"),
+                        org.mockito.ArgumentMatchers.eq("ORD-1"),
+                        org.mockito.ArgumentMatchers.eq("inventory-events"),
+                        org.mockito.ArgumentMatchers.eq("ORD-1"),
+                        captor.capture());
+        InventoryProcessedEvent outboxEvent = (InventoryProcessedEvent) captor.getValue();
+        assertFalse(outboxEvent.reserved());
+        assertEquals("Inventory SKU not found", outboxEvent.message());
+        assertEquals(0, outboxEvent.availableQuantity());
     }
 
     @Test
-    void handleOrderCreated_publishesFailedEvent_whenInsufficient() {
+    void handleOrderCreated_enqueuesFailedEvent_whenInsufficient() {
         Inventory existing = inventory("SKU-1", 1);
         when(inventoryRepository.findBySkuCode("SKU-1")).thenReturn(Optional.of(existing));
         OrderCreatedEvent event = new OrderCreatedEvent(
@@ -133,15 +140,22 @@ class InventoryServiceTest {
 
         inventoryService.handleOrderCreated(event);
 
-        ArgumentCaptor<InventoryProcessedEvent> captor = ArgumentCaptor.forClass(InventoryProcessedEvent.class);
-        verify(kafkaTemplate).send(org.mockito.ArgumentMatchers.eq("inventory-events"), org.mockito.ArgumentMatchers.eq("ORD-2"), captor.capture());
-        assertFalse(captor.getValue().reserved());
-        assertEquals("Insufficient inventory", captor.getValue().message());
-        assertEquals(1, captor.getValue().availableQuantity());
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(outboxService)
+                .enqueue(
+                        org.mockito.ArgumentMatchers.eq("INVENTORY"),
+                        org.mockito.ArgumentMatchers.eq("ORD-2"),
+                        org.mockito.ArgumentMatchers.eq("inventory-events"),
+                        org.mockito.ArgumentMatchers.eq("ORD-2"),
+                        captor.capture());
+        InventoryProcessedEvent outboxEvent = (InventoryProcessedEvent) captor.getValue();
+        assertFalse(outboxEvent.reserved());
+        assertEquals("Insufficient inventory", outboxEvent.message());
+        assertEquals(1, outboxEvent.availableQuantity());
     }
 
     @Test
-    void handleOrderCreated_reservesAndPublishesSuccessEvent_whenSufficient() {
+    void handleOrderCreated_reservesAndEnqueuesSuccessEvent_whenSufficient() {
         Inventory existing = inventory("SKU-1", 8);
         when(inventoryRepository.findBySkuCode("SKU-1")).thenReturn(Optional.of(existing));
         OrderCreatedEvent event = new OrderCreatedEvent(
@@ -155,11 +169,18 @@ class InventoryServiceTest {
 
         inventoryService.handleOrderCreated(event);
 
-        ArgumentCaptor<InventoryProcessedEvent> captor = ArgumentCaptor.forClass(InventoryProcessedEvent.class);
-        verify(kafkaTemplate).send(org.mockito.ArgumentMatchers.eq("inventory-events"), org.mockito.ArgumentMatchers.eq("ORD-3"), captor.capture());
-        assertTrue(captor.getValue().reserved());
-        assertEquals("Inventory reserved", captor.getValue().message());
-        assertEquals(6, captor.getValue().availableQuantity());
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(outboxService)
+                .enqueue(
+                        org.mockito.ArgumentMatchers.eq("INVENTORY"),
+                        org.mockito.ArgumentMatchers.eq("ORD-3"),
+                        org.mockito.ArgumentMatchers.eq("inventory-events"),
+                        org.mockito.ArgumentMatchers.eq("ORD-3"),
+                        captor.capture());
+        InventoryProcessedEvent outboxEvent = (InventoryProcessedEvent) captor.getValue();
+        assertTrue(outboxEvent.reserved());
+        assertEquals("Inventory reserved", outboxEvent.message());
+        assertEquals(6, outboxEvent.availableQuantity());
         assertEquals(6, existing.getQuantity());
     }
 

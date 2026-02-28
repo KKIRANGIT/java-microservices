@@ -5,6 +5,7 @@ import com.ecommerce.inventory.api.ReserveInventoryRequest;
 import com.ecommerce.inventory.event.InventoryProcessedEvent;
 import com.ecommerce.inventory.event.OrderCreatedEvent;
 import com.ecommerce.inventory.model.Inventory;
+import com.ecommerce.inventory.outbox.OutboxService;
 import com.ecommerce.inventory.repository.InventoryRepository;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
@@ -12,7 +13,6 @@ import java.util.Comparator;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -22,13 +22,13 @@ public class InventoryService {
     private static final String INVENTORY_EVENTS_TOPIC = "inventory-events";
 
     private final InventoryRepository inventoryRepository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final OutboxService outboxService;
 
     public InventoryService(
             InventoryRepository inventoryRepository,
-            KafkaTemplate<String, Object> kafkaTemplate) {
+            OutboxService outboxService) {
         this.inventoryRepository = inventoryRepository;
-        this.kafkaTemplate = kafkaTemplate;
+        this.outboxService = outboxService;
     }
 
     public List<InventoryResponse> getAllInventory() {
@@ -88,7 +88,9 @@ public class InventoryService {
             message = "Inventory reserved";
         }
 
-        kafkaTemplate.send(
+        outboxService.enqueue(
+                "INVENTORY",
+                event.orderNumber(),
                 INVENTORY_EVENTS_TOPIC,
                 event.orderNumber(),
                 new InventoryProcessedEvent(
@@ -100,7 +102,7 @@ public class InventoryService {
                         message,
                         Instant.now()));
         LOGGER.info(
-                "Published inventory event: orderNumber={}, skuCode={}, reserved={}, availableQuantity={}",
+                "Enqueued inventory event in outbox: orderNumber={}, skuCode={}, reserved={}, availableQuantity={}",
                 event.orderNumber(),
                 event.skuCode(),
                 reserved,

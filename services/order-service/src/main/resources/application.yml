@@ -50,3 +50,7 @@ management:
 logging:
   file:
     name: /app/logs/order-service.log
+
+outbox:
+  publisher:
+    fixed-delay-ms: 1500

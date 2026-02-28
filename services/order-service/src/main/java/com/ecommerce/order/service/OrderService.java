@@ -8,6 +8,7 @@ import com.ecommerce.order.event.OrderCreatedEvent;
 import com.ecommerce.order.event.OrderLifecycleEvent;
 import com.ecommerce.order.model.CustomerOrder;
 import com.ecommerce.order.model.OrderStatus;
+import com.ecommerce.order.outbox.OutboxService;
 import com.ecommerce.order.repository.OrderRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -16,7 +17,6 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClientException;
@@ -32,15 +32,15 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final RestTemplate restTemplate;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final OutboxService outboxService;
 
     public OrderService(
             OrderRepository orderRepository,
             RestTemplate restTemplate,
-            KafkaTemplate<String, Object> kafkaTemplate) {
+            OutboxService outboxService) {
         this.orderRepository = orderRepository;
         this.restTemplate = restTemplate;
-        this.kafkaTemplate = kafkaTemplate;
+        this.outboxService = outboxService;
     }
 
     public List<OrderResponse> getOrders() {
@@ -91,7 +91,9 @@ public class OrderService {
 
         CustomerOrder savedOrder = orderRepository.save(order);
 
-        kafkaTemplate.send(
+        outboxService.enqueue(
+                "ORDER",
+                savedOrder.getOrderNumber(),
                 ORDER_CREATED_TOPIC,
                 savedOrder.getOrderNumber(),
                 new OrderCreatedEvent(
@@ -103,7 +105,7 @@ public class OrderService {
                         savedOrder.getCustomerEmail(),
                         savedOrder.getCreatedAt()));
         LOGGER.info(
-                "Published order-created event: orderNumber={}, skuCode={}, quantity={}",
+                "Enqueued order-created event in outbox: orderNumber={}, skuCode={}, quantity={}",
                 savedOrder.getOrderNumber(),
                 savedOrder.getSkuCode(),
                 savedOrder.getQuantity());
@@ -153,7 +155,9 @@ public class OrderService {
         order.setUpdatedAt(Instant.now());
         CustomerOrder updated = orderRepository.save(order);
 
-        kafkaTemplate.send(
+        outboxService.enqueue(
+                "ORDER",
+                updated.getOrderNumber(),
                 ORDER_EVENTS_TOPIC,
                 updated.getOrderNumber(),
                 new OrderLifecycleEvent(
@@ -168,7 +172,7 @@ public class OrderService {
                         updated.getCreatedAt(),
                         updated.getUpdatedAt()));
         LOGGER.info(
-                "Published order lifecycle event: orderNumber={}, status={}, reason={}",
+                "Enqueued order lifecycle event in outbox: orderNumber={}, status={}, reason={}",
                 updated.getOrderNumber(),
                 lifecycleStatus,
                 updated.getFailureReason());
