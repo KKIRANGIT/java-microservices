@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ecommerce Storefront</title>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<main class="container">
+    <header>
+        <h1>Ecommerce Microservices Storefront</h1>
+        <p>Gateway-backed UI for product and order APIs.</p>
+    </header>
+
+    <section>
+        <h2>Catalog</h2>
+        <div id="products" class="cards"></div>
+    </section>
+
+    <section>
+        <h2>Place Order</h2>
+        <form id="orderForm">
+            <label>
+                SKU Code
+                <input id="skuCode" name="skuCode" required>
+            </label>
+            <label>
+                Quantity
+                <input id="quantity" name="quantity" type="number" min="1" value="1" required>
+            </label>
+            <label>
+                Customer Email
+                <input id="customerEmail" name="customerEmail" type="email" required>
+            </label>
+            <button type="submit">Submit Order</button>
+        </form>
+        <pre id="orderResult"></pre>
+    </section>
+
+    <section>
+        <h2>Recent Orders</h2>
+        <button id="refreshOrders" type="button">Refresh Orders</button>
+        <pre id="ordersResult"></pre>
+    </section>
+</main>
+<script src="./app.js"></script>
+</body>
+</html>

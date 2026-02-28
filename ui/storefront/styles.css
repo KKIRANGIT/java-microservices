@@ -1,0 +1,100 @@
+:root {
+    --bg: #f3f6fb;
+    --panel: #ffffff;
+    --text: #13243a;
+    --accent: #1f6feb;
+    --muted: #627287;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background: radial-gradient(circle at top, #e8efff 0%, #f7f9fd 45%, #ecf0f7 100%);
+    color: var(--text);
+}
+
+.container {
+    max-width: 1050px;
+    margin: 0 auto;
+    padding: 24px;
+    display: grid;
+    gap: 18px;
+}
+
+header, section {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 6px 20px rgba(15, 37, 71, 0.08);
+}
+
+h1, h2 {
+    margin: 0 0 10px 0;
+}
+
+p {
+    margin: 0;
+    color: var(--muted);
+}
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.card {
+    border: 1px solid #d8e2f0;
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.card h3 {
+    margin: 0 0 6px;
+}
+
+.sku {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+    align-items: end;
+}
+
+label {
+    display: grid;
+    gap: 6px;
+    font-size: 14px;
+}
+
+input, button {
+    border-radius: 8px;
+    border: 1px solid #c9d6e8;
+    padding: 10px;
+    font-size: 14px;
+}
+
+button {
+    background: var(--accent);
+    color: #ffffff;
+    border-color: var(--accent);
+    cursor: pointer;
+}
+
+pre {
+    margin: 12px 0 0;
+    padding: 12px;
+    background: #0f1b2d;
+    color: #d8e8ff;
+    border-radius: 8px;
+    overflow: auto;
+    min-height: 70px;
+}
