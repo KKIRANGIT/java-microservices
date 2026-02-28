@@ -19,7 +19,7 @@ Production-style local stack with:
 - `order-service` (`8083`): Checkout API, validates product, reserves inventory, stores order, publishes Kafka event
 - `notification-service` (`8084`): Kafka consumer logs order events
 - `postgres` (`5432`): `product_db`, `inventory_db`, `order_db`
-- `kafka` (`9092`) and `kafka-ui` (`8090`)
+- `zookeeper` + `kafka` (`9092`) and `kafka-ui` (`8090`)
 - `prometheus` (`9090`)
 - `grafana` (`3000`, `admin/admin`) pre-provisioned with Prometheus + Loki
 - `loki` (`3100`) + `promtail`
@@ -39,6 +39,25 @@ Then open:
 - Kafka UI: http://localhost:8090
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3000
+
+## Troubleshooting
+
+```powershell
+# Show container status + logs for failed services
+powershell -ExecutionPolicy Bypass -File .\scripts\check-stack.ps1
+```
+
+```bash
+# Rebuild only application services
+docker compose build discovery-service gateway-service product-service inventory-service order-service notification-service
+docker compose up -d
+```
+
+```bash
+# If Kafka shows InconsistentClusterIdException, reset Kafka/Zookeeper volumes once
+docker compose down -v
+docker compose up -d --build
+```
 
 ## API Quick Check
 
