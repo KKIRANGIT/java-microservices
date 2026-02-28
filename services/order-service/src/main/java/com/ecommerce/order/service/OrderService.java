@@ -13,6 +13,8 @@ import com.ecommerce.order.repository.OrderRepository;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -23,8 +25,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 
 @Service
+@Validated
 public class OrderService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OrderService.class);
@@ -55,14 +59,14 @@ public class OrderService {
         return orderRepository.findAll().stream().map(this::toResponse).toList();
     }
 
-    public OrderResponse getOrderByNumber(String orderNumber) {
+    public OrderResponse getOrderByNumber(@NotBlank(message = "orderNumber is required") String orderNumber) {
         CustomerOrder order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new OrderPlacementException("Order not found for orderNumber " + orderNumber));
         return toResponse(order);
     }
 
     @Transactional
-    public OrderResponse placeOrder(OrderRequest request) {
+    public OrderResponse placeOrder(@Valid OrderRequest request) {
         if (request.quantity() <= 0) {
             meterRegistry.counter("ecommerce.orders.rejected", "reason", "invalid_quantity").increment();
             throw new OrderPlacementException("Quantity must be greater than zero");

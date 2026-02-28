@@ -9,6 +9,9 @@ import com.ecommerce.inventory.outbox.OutboxService;
 import com.ecommerce.inventory.repository.InventoryRepository;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.util.Comparator;
@@ -16,8 +19,10 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.validation.annotation.Validated;
 
 @Service
+@Validated
 public class InventoryService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(InventoryService.class);
@@ -59,7 +64,7 @@ public class InventoryService {
                 .toList();
     }
 
-    public InventoryResponse getInventory(String skuCode) {
+    public InventoryResponse getInventory(@NotBlank(message = "skuCode is required") String skuCode) {
         Inventory inventory = inventoryRepository.findBySkuCode(skuCode).orElse(null);
         if (inventory == null) {
             return new InventoryResponse(skuCode, false, 0);
@@ -68,7 +73,9 @@ public class InventoryService {
     }
 
     @Transactional
-    public InventoryResponse updateInventory(String skuCode, int quantity) {
+    public InventoryResponse updateInventory(
+            @NotBlank(message = "skuCode is required") String skuCode,
+            @Min(value = 0, message = "quantity must be zero or greater") int quantity) {
         Inventory inventory = inventoryRepository.findBySkuCode(skuCode).orElseGet(() -> {
             Inventory created = new Inventory();
             created.setSkuCode(skuCode);
@@ -81,7 +88,7 @@ public class InventoryService {
     }
 
     @Transactional
-    public InventoryResponse reserveInventory(ReserveInventoryRequest request) {
+    public InventoryResponse reserveInventory(@Valid ReserveInventoryRequest request) {
         meterRegistry.counter("ecommerce.inventory.reserve.request").increment();
         Inventory inventory = inventoryRepository.findBySkuCode(request.skuCode()).orElse(null);
         if (inventory == null || inventory.getQuantity() < request.quantity()) {

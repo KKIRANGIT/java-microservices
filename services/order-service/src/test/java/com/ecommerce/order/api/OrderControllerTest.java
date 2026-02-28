@@ -1,6 +1,7 @@
 package com.ecommerce.order.api;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -67,16 +68,30 @@ class OrderControllerTest {
     @Test
     void placeOrder_returnsBadRequest_whenServiceThrows() throws Exception {
         when(orderService.placeOrder(any(OrderRequest.class)))
-                .thenThrow(new OrderPlacementException("Quantity must be greater than zero"));
+                .thenThrow(new OrderPlacementException("Inventory reservation failed"));
 
         mockMvc.perform(post("/api/orders")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"skuCode":"SKU-1","quantity":0,"customerEmail":"user@example.com"}
+                                {"skuCode":"SKU-1","quantity":1,"customerEmail":"user@example.com"}
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("ORDER_PLACEMENT_FAILED"))
-                .andExpect(jsonPath("$.message").value("Quantity must be greater than zero"));
+                .andExpect(jsonPath("$.message").value("Inventory reservation failed"));
+    }
+
+    @Test
+    void placeOrder_returnsBadRequest_whenPayloadInvalid() throws Exception {
+        mockMvc.perform(post("/api/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"skuCode":"","quantity":0,"customerEmail":"invalid-email"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.details").isArray());
+
+        verifyNoInteractions(orderService);
     }
 
     private OrderResponse response(String orderNumber, String status, String failureReason) {

@@ -1,6 +1,7 @@
 package com.ecommerce.inventory.api;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -14,10 +15,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(InventoryController.class)
+@Import(InventoryApiExceptionHandler.class)
 class InventoryControllerTest {
 
     @Autowired
@@ -86,6 +89,24 @@ class InventoryControllerTest {
                         .content("""
                                 {"quantity":-1}
                                 """))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.details").isArray());
+
+        verifyNoInteractions(inventoryService);
+    }
+
+    @Test
+    void reserve_returnsBadRequest_whenPayloadInvalid() throws Exception {
+        mockMvc.perform(post("/api/inventory/reserve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"skuCode":"","quantity":0}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.details").isArray());
+
+        verifyNoInteractions(inventoryService);
     }
 }

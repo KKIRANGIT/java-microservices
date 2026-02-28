@@ -1,6 +1,7 @@
 package com.ecommerce.product.api;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -82,5 +83,26 @@ class ProductControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("PRODUCT_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Product not found for sku MISSING"));
+    }
+
+    @Test
+    void createProduct_returnsBadRequest_whenPayloadInvalid() throws Exception {
+        String body = """
+                {
+                  "skuCode": "",
+                  "name": "",
+                  "description": "valid",
+                  "price": 0
+                }
+                """;
+
+        mockMvc.perform(post("/api/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.details").isArray());
+
+        verifyNoInteractions(productService);
     }
 }

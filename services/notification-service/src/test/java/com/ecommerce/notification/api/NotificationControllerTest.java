@@ -1,6 +1,7 @@
 package com.ecommerce.notification.api;
 
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -15,9 +16,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(NotificationController.class)
+@Import(NotificationApiExceptionHandler.class)
 class NotificationControllerTest {
 
     @Autowired
@@ -64,6 +67,16 @@ class NotificationControllerTest {
 
         mockMvc.perform(get("/api/notifications/MISSING"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getRecentNotifications_returnsBadRequest_whenLimitInvalid() throws Exception {
+        mockMvc.perform(get("/api/notifications?limit=0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.details").isArray());
+
+        verifyNoInteractions(notificationService);
     }
 
     private NotificationResponse response(String orderNumber) {
