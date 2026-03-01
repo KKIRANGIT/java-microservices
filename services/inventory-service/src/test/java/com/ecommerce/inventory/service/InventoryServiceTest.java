@@ -11,6 +11,7 @@ import com.ecommerce.inventory.api.InventoryResponse;
 import com.ecommerce.inventory.api.ReserveInventoryRequest;
 import com.ecommerce.inventory.event.InventoryProcessedEvent;
 import com.ecommerce.inventory.event.OrderCreatedEvent;
+import com.ecommerce.inventory.mapper.InventoryMapper;
 import com.ecommerce.inventory.model.Inventory;
 import com.ecommerce.inventory.outbox.OutboxService;
 import com.ecommerce.inventory.repository.InventoryRepository;
@@ -27,6 +28,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mapstruct.factory.Mappers;
 
 @ExtendWith(MockitoExtension.class)
 class InventoryServiceTest {
@@ -39,6 +41,9 @@ class InventoryServiceTest {
 
     @Spy
     private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+    @Spy
+    private InventoryMapper inventoryMapper = Mappers.getMapper(InventoryMapper.class);
 
     @InjectMocks
     private InventoryService inventoryService;

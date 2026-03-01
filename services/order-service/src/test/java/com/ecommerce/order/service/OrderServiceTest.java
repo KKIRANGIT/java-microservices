@@ -17,6 +17,7 @@ import com.ecommerce.order.client.ProductResponse;
 import com.ecommerce.order.event.InventoryProcessedEvent;
 import com.ecommerce.order.event.OrderCreatedEvent;
 import com.ecommerce.order.event.OrderLifecycleEvent;
+import com.ecommerce.order.mapper.OrderMapper;
 import com.ecommerce.order.model.CustomerOrder;
 import com.ecommerce.order.model.OrderStatus;
 import com.ecommerce.order.outbox.OutboxService;
@@ -34,6 +35,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mapstruct.factory.Mappers;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
@@ -49,6 +51,9 @@ class OrderServiceTest {
 
     @Spy
     private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+    @Spy
+    private OrderMapper orderMapper = Mappers.getMapper(OrderMapper.class);
 
     @InjectMocks
     private OrderService orderService;

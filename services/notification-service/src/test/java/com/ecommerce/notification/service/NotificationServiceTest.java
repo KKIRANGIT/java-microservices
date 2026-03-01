@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.ecommerce.notification.api.NotificationResponse;
 import com.ecommerce.notification.event.OrderLifecycleEvent;
+import com.ecommerce.notification.mapper.NotificationMapper;
 import com.ecommerce.notification.model.NotificationEvent;
 import com.ecommerce.notification.repository.NotificationEventRepository;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -24,6 +25,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mapstruct.factory.Mappers;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
@@ -35,6 +37,9 @@ class NotificationServiceTest {
 
     @Spy
     private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+    @Spy
+    private NotificationMapper notificationMapper = Mappers.getMapper(NotificationMapper.class);
 
     @InjectMocks
     private NotificationService notificationService;

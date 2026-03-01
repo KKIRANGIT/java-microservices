@@ -4,6 +4,7 @@ import com.ecommerce.inventory.api.InventoryResponse;
 import com.ecommerce.inventory.api.ReserveInventoryRequest;
 import com.ecommerce.inventory.event.InventoryProcessedEvent;
 import com.ecommerce.inventory.event.OrderCreatedEvent;
+import com.ecommerce.inventory.mapper.InventoryMapper;
 import com.ecommerce.inventory.model.Inventory;
 import com.ecommerce.inventory.outbox.OutboxService;
 import com.ecommerce.inventory.repository.InventoryRepository;
@@ -32,14 +33,17 @@ public class InventoryService {
     private final InventoryRepository inventoryRepository;
     private final OutboxService outboxService;
     private final MeterRegistry meterRegistry;
+    private final InventoryMapper inventoryMapper;
 
     public InventoryService(
             InventoryRepository inventoryRepository,
             OutboxService outboxService,
-            MeterRegistry meterRegistry) {
+            MeterRegistry meterRegistry,
+            InventoryMapper inventoryMapper) {
         this.inventoryRepository = inventoryRepository;
         this.outboxService = outboxService;
         this.meterRegistry = meterRegistry;
+        this.inventoryMapper = inventoryMapper;
         Gauge.builder(
                         "ecommerce.inventory.low_stock_skus",
                         inventoryRepository,
@@ -57,34 +61,28 @@ public class InventoryService {
     public List<InventoryResponse> getAllInventory() {
         return inventoryRepository.findAll().stream()
                 .sorted(Comparator.comparing(Inventory::getSkuCode))
-                .map(inventory -> new InventoryResponse(
-                        inventory.getSkuCode(),
-                        inventory.getQuantity() > 0,
-                        inventory.getQuantity()))
+                .map(inventoryMapper::toInventoryResponse)
                 .toList();
     }
 
     public InventoryResponse getInventory(@NotBlank(message = "skuCode is required") String skuCode) {
         Inventory inventory = inventoryRepository.findBySkuCode(skuCode).orElse(null);
         if (inventory == null) {
-            return new InventoryResponse(skuCode, false, 0);
+            return inventoryMapper.toReservationResponse(skuCode, false, 0);
         }
-        return new InventoryResponse(skuCode, inventory.getQuantity() > 0, inventory.getQuantity());
+        return inventoryMapper.toInventoryResponse(inventory);
     }
 
     @Transactional
     public InventoryResponse updateInventory(
             @NotBlank(message = "skuCode is required") String skuCode,
             @Min(value = 0, message = "quantity must be zero or greater") int quantity) {
-        Inventory inventory = inventoryRepository.findBySkuCode(skuCode).orElseGet(() -> {
-            Inventory created = new Inventory();
-            created.setSkuCode(skuCode);
-            return created;
-        });
+        Inventory inventory = inventoryRepository.findBySkuCode(skuCode)
+                .orElseGet(() -> inventoryMapper.toInventory(skuCode, quantity));
         inventory.setQuantity(quantity);
         Inventory saved = inventoryRepository.save(inventory);
         meterRegistry.counter("ecommerce.inventory.manual_update").increment();
-        return new InventoryResponse(saved.getSkuCode(), saved.getQuantity() > 0, saved.getQuantity());
+        return inventoryMapper.toInventoryResponse(saved);
     }
 
     @Transactional
@@ -94,12 +92,12 @@ public class InventoryService {
         if (inventory == null || inventory.getQuantity() < request.quantity()) {
             int available = inventory == null ? 0 : inventory.getQuantity();
             meterRegistry.counter("ecommerce.inventory.reserve.result", "result", "failed").increment();
-            return new InventoryResponse(request.skuCode(), false, available);
+            return inventoryMapper.toReservationResponse(request.skuCode(), false, available);
         }
 
         inventory.setQuantity(inventory.getQuantity() - request.quantity());
         meterRegistry.counter("ecommerce.inventory.reserve.result", "result", "success").increment();
-        return new InventoryResponse(request.skuCode(), true, inventory.getQuantity());
+        return inventoryMapper.toReservationResponse(request.skuCode(), true, inventory.getQuantity());
     }
 
     @Transactional

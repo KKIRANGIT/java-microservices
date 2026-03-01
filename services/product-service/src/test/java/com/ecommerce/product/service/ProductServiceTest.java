@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.ecommerce.product.api.ProductRequest;
 import com.ecommerce.product.api.ProductResponse;
+import com.ecommerce.product.mapper.ProductMapper;
 import com.ecommerce.product.model.Product;
 import com.ecommerce.product.repository.ProductRepository;
 import java.math.BigDecimal;
@@ -18,13 +19,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mapstruct.factory.Mappers;
 
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Spy
+    private ProductMapper productMapper = Mappers.getMapper(ProductMapper.class);
 
     @InjectMocks
     private ProductService productService;

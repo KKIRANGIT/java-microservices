@@ -2,13 +2,13 @@ package com.ecommerce.notification.service;
 
 import com.ecommerce.notification.api.NotificationResponse;
 import com.ecommerce.notification.event.OrderLifecycleEvent;
+import com.ecommerce.notification.mapper.NotificationMapper;
 import com.ecommerce.notification.model.NotificationEvent;
 import com.ecommerce.notification.repository.NotificationEventRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.PageRequest;
@@ -23,12 +23,15 @@ public class NotificationService {
 
     private final NotificationEventRepository notificationEventRepository;
     private final MeterRegistry meterRegistry;
+    private final NotificationMapper notificationMapper;
 
     public NotificationService(
             NotificationEventRepository notificationEventRepository,
-            MeterRegistry meterRegistry) {
+            MeterRegistry meterRegistry,
+            NotificationMapper notificationMapper) {
         this.notificationEventRepository = notificationEventRepository;
         this.meterRegistry = meterRegistry;
+        this.notificationMapper = notificationMapper;
     }
 
     @Transactional
@@ -36,17 +39,7 @@ public class NotificationService {
         NotificationEvent notificationEvent = notificationEventRepository
                 .findByOrderNumber(event.orderNumber())
                 .orElseGet(NotificationEvent::new);
-
-        notificationEvent.setOrderNumber(event.orderNumber());
-        notificationEvent.setSkuCode(event.skuCode());
-        notificationEvent.setProductName(event.productName());
-        notificationEvent.setQuantity(event.quantity());
-        notificationEvent.setTotalPrice(event.totalPrice());
-        notificationEvent.setCustomerEmail(event.customerEmail());
-        notificationEvent.setOrderCreatedAt(event.orderCreatedAt());
-        notificationEvent.setStatus(event.orderStatus());
-        notificationEvent.setMessage(event.message());
-        notificationEvent.setProcessedAt(event.occurredAt() == null ? Instant.now() : event.occurredAt());
+        notificationMapper.updateFromEvent(event, notificationEvent);
 
         notificationEventRepository.save(notificationEvent);
         meterRegistry.counter("ecommerce.notifications.processed", "status", event.orderStatus()).increment();
@@ -60,26 +53,12 @@ public class NotificationService {
         return notificationEventRepository
                 .findAll(PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "processedAt")))
                 .stream()
-                .map(this::toResponse)
+                .map(notificationMapper::toResponse)
                 .toList();
     }
 
     public Optional<NotificationResponse> getByOrderNumber(
             @NotBlank(message = "orderNumber is required") String orderNumber) {
-        return notificationEventRepository.findByOrderNumber(orderNumber).map(this::toResponse);
-    }
-
-    private NotificationResponse toResponse(NotificationEvent notificationEvent) {
-        return new NotificationResponse(
-                notificationEvent.getOrderNumber(),
-                notificationEvent.getSkuCode(),
-                notificationEvent.getProductName(),
-                notificationEvent.getQuantity(),
-                notificationEvent.getTotalPrice(),
-                notificationEvent.getCustomerEmail(),
-                notificationEvent.getOrderCreatedAt(),
-                notificationEvent.getStatus(),
-                notificationEvent.getMessage(),
-                notificationEvent.getProcessedAt());
+        return notificationEventRepository.findByOrderNumber(orderNumber).map(notificationMapper::toResponse);
     }
 }

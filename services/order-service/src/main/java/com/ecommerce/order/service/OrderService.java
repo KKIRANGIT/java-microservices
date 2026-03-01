@@ -6,6 +6,7 @@ import com.ecommerce.order.client.ProductResponse;
 import com.ecommerce.order.event.InventoryProcessedEvent;
 import com.ecommerce.order.event.OrderCreatedEvent;
 import com.ecommerce.order.event.OrderLifecycleEvent;
+import com.ecommerce.order.mapper.OrderMapper;
 import com.ecommerce.order.model.CustomerOrder;
 import com.ecommerce.order.model.OrderStatus;
 import com.ecommerce.order.outbox.OutboxService;
@@ -15,7 +16,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -40,29 +40,32 @@ public class OrderService {
     private final ProductCatalogClient productCatalogClient;
     private final OutboxService outboxService;
     private final MeterRegistry meterRegistry;
+    private final OrderMapper orderMapper;
 
     public OrderService(
             OrderRepository orderRepository,
             ProductCatalogClient productCatalogClient,
             OutboxService outboxService,
-            MeterRegistry meterRegistry) {
+            MeterRegistry meterRegistry,
+            OrderMapper orderMapper) {
         this.orderRepository = orderRepository;
         this.productCatalogClient = productCatalogClient;
         this.outboxService = outboxService;
         this.meterRegistry = meterRegistry;
+        this.orderMapper = orderMapper;
         Gauge.builder("ecommerce.orders.pending", orderRepository, repo -> repo.countByStatus(OrderStatus.PENDING.name()))
                 .description("Current number of pending orders waiting for inventory result")
                 .register(meterRegistry);
     }
 
     public List<OrderResponse> getOrders() {
-        return orderRepository.findAll().stream().map(this::toResponse).toList();
+        return orderRepository.findAll().stream().map(orderMapper::toResponse).toList();
     }
 
     public OrderResponse getOrderByNumber(@NotBlank(message = "orderNumber is required") String orderNumber) {
         CustomerOrder order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new OrderPlacementException("Order not found for orderNumber " + orderNumber));
-        return toResponse(order);
+        return orderMapper.toResponse(order);
     }
 
     @Transactional
@@ -91,18 +94,12 @@ public class OrderService {
         }
 
         Instant now = Instant.now();
-        CustomerOrder order = new CustomerOrder();
-        order.setOrderNumber(UUID.randomUUID().toString());
-        order.setSkuCode(product.skuCode());
-        order.setProductName(product.name());
-        order.setQuantity(request.quantity());
-        order.setUnitPrice(product.price());
-        order.setTotalPrice(product.price().multiply(BigDecimal.valueOf(request.quantity())));
-        order.setCustomerEmail(request.customerEmail());
-        order.setStatus(OrderStatus.PENDING.name());
-        order.setFailureReason(null);
-        order.setCreatedAt(now);
-        order.setUpdatedAt(now);
+        CustomerOrder order = orderMapper.toPendingOrder(
+                request,
+                product,
+                UUID.randomUUID().toString(),
+                now,
+                OrderStatus.PENDING.name());
 
         CustomerOrder savedOrder = orderRepository.save(order);
 
@@ -126,7 +123,7 @@ public class OrderService {
                 savedOrder.getQuantity());
         meterRegistry.counter("ecommerce.orders.placed").increment();
 
-        return toResponse(savedOrder);
+        return orderMapper.toResponse(savedOrder);
     }
 
     @KafkaListener(topics = INVENTORY_EVENTS_TOPIC, groupId = "order-service")
@@ -209,20 +206,5 @@ public class OrderService {
                 .tag("status", lifecycleStatus)
                 .register(meterRegistry)
                 .record(duration);
-    }
-
-    private OrderResponse toResponse(CustomerOrder order) {
-        return new OrderResponse(
-                order.getOrderNumber(),
-                order.getSkuCode(),
-                order.getProductName(),
-                order.getQuantity(),
-                order.getUnitPrice(),
-                order.getTotalPrice(),
-                order.getCustomerEmail(),
-                order.getStatus(),
-                order.getFailureReason(),
-                order.getCreatedAt(),
-                order.getUpdatedAt());
     }
 }
