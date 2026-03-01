@@ -328,6 +328,97 @@ Local defaults:
 - `InventoryProcessedEvent`: inventory -> order
 - `OrderLifecycleEvent`: order -> notification
 
+## 7.4 Inter-Service Communication Map (End-to-End)
+
+### 7.4.1 External Request Path (North-South)
+
+1. Browser calls `/api/*` from storefront JavaScript.
+2. Nginx forwards `/api/*` to `gateway-service:8080`.
+3. Gateway resolves route by path and forwards to the target microservice using `lb://...` and Eureka.
+
+Code/config references:
+
+- `ui/storefront/app.js`
+- `ui/nginx.conf`
+- `services/gateway-service/src/main/resources/application.yml`
+
+### 7.4.2 Internal Sync Communication (East-West HTTP)
+
+`order-service` performs a synchronous product lookup before creating an order:
+
+- Caller: `order-service`
+- Callee: `product-service`
+- Protocol: HTTP via `RestTemplate` + Eureka/LB name (`http://product-service/...`)
+- Client-side protections: circuit breaker, retry, rate limiter, bulkhead
+
+Code references:
+
+- `services/order-service/src/main/java/com/ecommerce/order/config/HttpClientConfig.java`
+- `services/order-service/src/main/java/com/ecommerce/order/service/ProductCatalogClient.java`
+
+### 7.4.3 Internal Async Communication (Kafka + Saga + Outbox)
+
+Order lifecycle is event-driven and eventually consistent:
+
+1. `order-service` receives `POST /api/orders`.
+2. It saves order as `PENDING` and writes `OrderCreatedEvent` to `event_outbox`.
+3. `order-service` outbox publisher sends event to Kafka topic `order-created-events`.
+4. `inventory-service` consumes `order-created-events`, reserves inventory (or fails), writes `InventoryProcessedEvent` to its outbox.
+5. `inventory-service` outbox publisher sends event to topic `inventory-events`.
+6. `order-service` consumes `inventory-events`, finalizes order as `CONFIRMED` or `CANCELLED`, writes `OrderLifecycleEvent` to outbox.
+7. `order-service` outbox publisher sends event to topic `order-events`.
+8. `notification-service` consumes `order-events` and persists notification state.
+
+Code references:
+
+- `services/order-service/src/main/java/com/ecommerce/order/service/OrderService.java`
+- `services/order-service/src/main/java/com/ecommerce/order/outbox/OutboxService.java`
+- `services/order-service/src/main/java/com/ecommerce/order/outbox/OutboxPublisher.java`
+- `services/inventory-service/src/main/java/com/ecommerce/inventory/service/OrderEventConsumer.java`
+- `services/inventory-service/src/main/java/com/ecommerce/inventory/service/InventoryService.java`
+- `services/inventory-service/src/main/java/com/ecommerce/inventory/outbox/OutboxService.java`
+- `services/inventory-service/src/main/java/com/ecommerce/inventory/outbox/OutboxPublisher.java`
+- `services/notification-service/src/main/java/com/ecommerce/notification/service/OrderNotificationConsumer.java`
+
+### 7.4.4 Kafka Producer/Consumer Matrix
+
+| Topic | Producer | Consumer | Group ID | Purpose |
+|---|---|---|---|---|
+| `order-created-events` | `order-service` (outbox publisher) | `inventory-service` (`OrderEventConsumer`) | `inventory-service` | Trigger inventory reservation for new order |
+| `inventory-events` | `inventory-service` (outbox publisher) | `order-service` (`@KafkaListener`) | `order-service` | Return reservation result to order workflow |
+| `order-events` | `order-service` (outbox publisher) | `notification-service` (`OrderNotificationConsumer`) | `notification-service` | Publish final order status for notifications/audit |
+
+### 7.4.5 Service Discovery Flow
+
+- `discovery-service` is Eureka server.
+- Gateway and all domain services register to Eureka (`defaultZone=http://discovery-service:8761/eureka`).
+- Gateway route targets (`lb://product-service`, etc.) are resolved through Eureka.
+- `@LoadBalanced RestTemplate` in `order-service` also resolves `product-service` via Eureka.
+
+### 7.4.6 Service-to-Database Mapping
+
+- `product-service` -> `product_db`
+- `inventory-service` -> `inventory_db`
+- `order-service` -> `order_db`
+- `notification-service` -> `postgres` (current implementation)
+
+Each service owns its tables; there is no direct cross-service DB access.
+
+### 7.4.7 Observability Communication Flow
+
+- Metrics: each service exposes `/actuator/prometheus`; Prometheus scrapes all services.
+- Logs: each service writes `/app/logs/*.log`; Promtail reads volumes and pushes to Loki.
+- Traces: each service exports OTLP traces to Tempo (`http://tempo:4318/v1/traces`).
+- Correlation: log pattern includes `traceId`/`spanId`; Grafana links Loki logs to Tempo traces.
+- Service Graph: Tempo metrics-generator remote-writes service graph metrics to Prometheus.
+
+### 7.4.8 Failure and Backpressure Behavior
+
+- Gateway route failures: circuit breaker + retry; fallback served from `/fallback/{serviceId}` with HTTP 503.
+- Gateway rate limiting: global in-memory token-bucket filter can return HTTP 429.
+- Product lookup failures from order-service: handled with resilience4j and mapped to business errors.
+- Kafka publish reliability: outbox rows remain `PENDING` on failure and are retried by scheduled publishers.
+
 ## 8. Frontend (Storefront) Implementation
 
 Files:

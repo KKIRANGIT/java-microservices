@@ -24,6 +24,27 @@ storage:
     local:
       path: /var/tempo/blocks
 
+metrics_generator:
+  registry:
+    collection_interval: 15s
+    external_labels:
+      source: tempo
+      cluster: ecommerce-docker
+  storage:
+    path: /var/tempo/generator/wal
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write
+        send_exemplars: true
+  processor:
+    service_graphs:
+      wait: 10s
+      max_items: 10000
+    span_metrics:
+      dimensions:
+        - service.name
+        - span.name
+        - status.code
+
 overrides:
   defaults:
     metrics_generator:
