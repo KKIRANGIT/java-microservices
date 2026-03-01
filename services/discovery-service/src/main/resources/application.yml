@@ -11,6 +11,12 @@ eureka:
     fetch-registry: false
 
 management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://tempo:4318/v1/traces
   endpoints:
     web:
       exposure:
@@ -23,6 +29,8 @@ management:
 logging:
   file:
     name: /app/logs/discovery-service.log
+  pattern:
+    level: "%5p [${spring.application.name:},traceId=%X{traceId:-},spanId=%X{spanId:-}]"
 
 springdoc:
   api-docs:

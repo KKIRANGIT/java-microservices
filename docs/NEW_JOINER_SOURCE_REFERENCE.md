@@ -577,3 +577,35 @@ When changing business flow, update in the same PR:
 4. This guide and `README.md`.
 
 This keeps onboarding and operations documentation accurate.
+
+## 15. Distributed Tracing and Log Correlation
+
+This project is wired with Micrometer Tracing (OpenTelemetry bridge) and Tempo.
+
+What is configured:
+
+- All services export traces to Tempo OTLP HTTP endpoint: `http://tempo:4318/v1/traces`.
+- Sampling is `1.0` in all services for local/dev visibility.
+- Log pattern includes trace and span IDs:
+  - `traceId=%X{traceId}`
+  - `spanId=%X{spanId}`
+- Grafana has:
+  - Prometheus datasource (metrics)
+  - Loki datasource (logs)
+  - Tempo datasource (traces)
+  - Loki derived field to open a Tempo trace directly from log lines.
+
+How to use in UI:
+
+1. Create an order from UI or API.
+2. Open Grafana (`http://localhost:3000`, `admin/admin1`).
+3. Go to `Explore`:
+   - Logs view: choose Loki, query `{job="order-service"}` and search for `orderNumber` or `traceId=`.
+   - Click `View Trace` on a log line to jump to Tempo trace.
+4. In Tempo datasource, search traces by service (for example `order-service`) and time range.
+5. Use `Logs for this span` inside trace view to navigate back to correlated logs.
+
+Optional direct services:
+
+- Prometheus UI (`http://localhost:9090`) for metrics only.
+- Loki API is available (`http://localhost:3100`) but Grafana Explore is recommended for log/traces workflow.

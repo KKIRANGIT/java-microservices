@@ -144,6 +144,7 @@ services:
     container_name: inventory-service
     environment:
       TZ: Asia/Kolkata
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092,ecommerce-kafka:9092
     ports:
       - "8082:8082"
     depends_on:
@@ -163,6 +164,7 @@ services:
     container_name: order-service
     environment:
       TZ: Asia/Kolkata
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092,ecommerce-kafka:9092
     ports:
       - "8083:8083"
     depends_on:
@@ -188,6 +190,7 @@ services:
     container_name: notification-service
     environment:
       TZ: Asia/Kolkata
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092,ecommerce-kafka:9092
     ports:
       - "8084:8084"
     depends_on:
@@ -237,6 +240,22 @@ services:
     networks:
       - ecommerce-network
 
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: ecommerce-tempo
+    environment:
+      TZ: Asia/Kolkata
+    command: [ "-config.file=/etc/tempo/tempo.yml" ]
+    ports:
+      - "3200:3200"
+      - "4318:4318"
+      - "9411:9411"
+    volumes:
+      - ./infra/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo-data:/var/tempo
+    networks:
+      - ecommerce-network
+
   promtail:
     image: grafana/promtail:3.2.1
     container_name: ecommerce-promtail
@@ -273,6 +292,7 @@ services:
     depends_on:
       - prometheus
       - loki
+      - tempo
     networks:
       - ecommerce-network
 
@@ -302,6 +322,7 @@ volumes:
   kafka-data:
   prometheus-data:
   loki-data:
+  tempo-data:
   grafana-data:
   pgadmin-data:
   discovery-logs:

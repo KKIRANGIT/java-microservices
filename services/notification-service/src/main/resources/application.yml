@@ -14,6 +14,8 @@ spring:
     open-in-view: false
   kafka:
     bootstrap-servers: kafka:9092
+    listener:
+      observation-enabled: true
     consumer:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
@@ -32,6 +34,12 @@ eureka:
       defaultZone: http://discovery-service:8761/eureka
 
 management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://tempo:4318/v1/traces
   endpoints:
     web:
       exposure:
@@ -44,6 +52,8 @@ management:
 logging:
   file:
     name: /app/logs/notification-service.log
+  pattern:
+    level: "%5p [${spring.application.name:},traceId=%X{traceId:-},spanId=%X{spanId:-}]"
 
 springdoc:
   api-docs:
